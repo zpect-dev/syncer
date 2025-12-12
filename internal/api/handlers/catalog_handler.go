@@ -2,9 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"profit-ecommerce/internal/catalog"
 	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type CatalogHandler struct {
@@ -13,6 +16,27 @@ type CatalogHandler struct {
 
 func NewCatalogHandler(repo *catalog.Repository) *CatalogHandler {
 	return &CatalogHandler{repo: repo}
+}
+
+func (h *CatalogHandler) Single(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	if id == "" {
+		http.Error(w, "ID es requerido", http.StatusBadRequest)
+		return
+	}
+
+	product, err := h.repo.GetByID(id)
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		http.Error(w, "Erro interno en el servidor", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"data": product,
+	})
 }
 
 func (h *CatalogHandler) List(w http.ResponseWriter, r *http.Request) {

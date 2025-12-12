@@ -18,7 +18,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	r.Use(middleware.Recoverer)
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"}, // En producción pon el dominio real de React
+		AllowedOrigins:   []string{"http://localhost:5173"}, // En producción pon el dominio real de React
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
@@ -30,7 +30,12 @@ func NewRouter(db *sql.DB) http.Handler {
 	catHandler := handlers.NewCatalogHandler(catRepo)
 
 	r.Route("/v1", func(r chi.Router) {
-		r.Get("/products", catHandler.List)
+
+		r.Route("/products", func(r chi.Router) {
+			r.Get("/", catHandler.List)
+
+			r.Get("/{id}", catHandler.Single)
+		})
 	})
 
 	return r
