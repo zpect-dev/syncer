@@ -1,19 +1,19 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/microsoft/go-mssqldb"
 )
 
-func ConnectPostgres(url string) (*sql.DB, error) {
+func ConnectPostgres(url string) (*sqlx.DB, error) {
 	if url == "" {
 		return nil, fmt.Errorf("URL de Postgres vacía")
 	}
-	db, err := sql.Open("postgres", url)
+	db, err := sqlx.Open("postgres", url)
 	if err != nil {
 		return nil, fmt.Errorf("error abriendo conexión a Postgres: %w", err)
 	}
@@ -26,11 +26,11 @@ func ConnectPostgres(url string) (*sql.DB, error) {
 	return db, nil
 }
 
-func ConnectSQLServer(connStr string) (*sql.DB, error) {
+func ConnectSQLServer(connStr string) (*sqlx.DB, error) {
 	if connStr == "" {
 		return nil, fmt.Errorf("connection string de SQL Server vacía")
 	}
-	db, err := sql.Open("sqlserver", connStr)
+	db, err := sqlx.Open("sqlserver", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("error abriendo conexión a SQL Server: %w", err)
 	}

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"net/http"
 	"profit-ecommerce/internal/api/handlers"
 	"profit-ecommerce/internal/catalog"
@@ -9,16 +8,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/jmoiron/sqlx"
 )
 
-func NewRouter(db *sql.DB) http.Handler {
+func NewRouter(db *sqlx.DB) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"}, // En producción pon el dominio real de React
+		AllowedOrigins:   []string{"http://localhost:5173", "http://192.168.4.64:5173"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
@@ -35,6 +35,11 @@ func NewRouter(db *sql.DB) http.Handler {
 			r.Get("/", catHandler.List)
 
 			r.Get("/{id}", catHandler.Single)
+
+			r.Get("/categories", catHandler.Categories)
+
+			r.Post("/batch", catHandler.GetByIDs)
+			//r.Get("/categories/{id}", catHandler.ListByCategory)
 		})
 	})
 

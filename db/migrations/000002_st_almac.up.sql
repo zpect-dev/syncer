@@ -1,18 +1,18 @@
-CREATE TABLE almacen (
-    co_alma VARCHAR(6) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS almacen (
+                                       co_alma VARCHAR(6) PRIMARY KEY,
     alma_des VARCHAR(60) NOT NULL
-);
+    );
 
-CREATE TABLE sub_alma (
-    co_sub VARCHAR(6) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS sub_alma (
+                                        co_sub VARCHAR(6) PRIMARY KEY,
     des_sub VARCHAR(60) NOT NULL,
     co_alma VARCHAR(6) NOT NULL,
 
     CONSTRAINT fk_co_alma_almacen FOREIGN KEY (co_alma) REFERENCES almacen(co_alma)
-);
+    );
 
-CREATE TABLE st_almac (
-    co_alma VARCHAR(6) NOT NULL,
+CREATE TABLE IF NOT EXISTS st_almac (
+                                        co_alma VARCHAR(6) NOT NULL,
     co_art VARCHAR(30) NOT NULL,
     stock_act DECIMAL(18, 5) NOT NULL,
     sstock_act DECIMAL(18, 5) NOT NULL,
@@ -27,4 +27,4 @@ CREATE TABLE st_almac (
 
     CONSTRAINT fk_co_alma_sub_alma FOREIGN KEY (co_alma) REFERENCES sub_alma(co_sub),
     CONSTRAINT fk_co_art_art FOREIGN KEY (co_art) REFERENCES art(co_art)
-);
+    );

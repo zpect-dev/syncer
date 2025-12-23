@@ -1,0 +1,22 @@
+# Git
+.git
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Go
+vendor/
+*.exe
+*.test
+*.out
+go.work
+go.work.sum
+
+# Env
+.env
+
+# Editor
+.idea
+.vscode

@@ -1,22 +1,22 @@
-CREATE TABLE lin_art (
-    co_lin VARCHAR(6) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS lin_art (
+                                       co_lin VARCHAR(6) PRIMARY KEY,
     lin_des VARCHAR(60) NOT NULL
-);
+    );
 
-CREATE TABLE sub_lin (
-    co_subl VARCHAR(6) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS sub_lin (
+                                       co_subl VARCHAR(6) PRIMARY KEY,
     subl_des VARCHAR(60) NOT NULL ,
     co_lin VARCHAR(6) NOT NULL,
 
     CONSTRAINT fk_sub_lin_lin_art FOREIGN KEY (co_lin) REFERENCES lin_art(co_lin)
-);
+    );
 
-CREATE TABLE cat_art (
-    co_cat VARCHAR(6) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS cat_art (
+                                       co_cat VARCHAR(6) PRIMARY KEY,
     cat_des VARCHAR(60) NOT NULL
-);
+    );
 
-CREATE TABLE art (
+CREATE TABLE IF NOT EXISTS art (
 
     -- Datos espejo profit
     co_art VARCHAR(30) PRIMARY KEY,
@@ -44,7 +44,14 @@ CREATE TABLE art (
     CONSTRAINT fk_art_line_art FOREIGN KEY (co_lin) REFERENCES lin_art(co_lin),
     CONSTRAINT fk_art_sub_lin FOREIGN KEY (co_subl) REFERENCES sub_lin(co_subl),
     CONSTRAINT fk_art_cat_art FOREIGN KEY (co_cat) REFERENCES cat_art(co_cat)
-);
+    );
+
+CREATE TABLE IF NOT EXISTS descuen (
+    co_desc VARCHAR(30),
+    tipo_cli VARCHAR(6),
+    tipo_desc VARCHAR(1),
+    porc1 DECIMAL(18, 2)
+    );
 
 CREATE INDEX idx_art_line ON art(co_lin);
 CREATE INDEX idx_art_art_des ON art(art_des);

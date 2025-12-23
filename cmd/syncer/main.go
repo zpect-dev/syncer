@@ -4,11 +4,16 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"profit-ecommerce/internal/config"
 	"profit-ecommerce/internal/db"
+
+	"github.com/jmoiron/sqlx"
 )
 
 func main() {
@@ -26,6 +31,8 @@ func main() {
 		log.Fatalf("Error conectando a Postgres: %v", err)
 	}
 	defer pgDB.Close()
+
+	runMigrations(pgDB)
 
 	fmt.Println("Worker Iniciado. Esperando ciclos...")
 
@@ -61,11 +68,55 @@ func main() {
 	}
 }
 
+func runMigrations(db *sqlx.DB) {
+	migrationDir := "db/migrations" // 👈 Tu carpeta según la imagen
+	fmt.Printf("Buscando migraciones en: %s\n", migrationDir)
+
+	// 1. Leer todos los archivos de la carpeta
+	files, err := os.ReadDir(migrationDir)
+	if err != nil {
+		log.Fatal("Error leyendo carpeta de migraciones: ", err)
+	}
+
+	var upMigrations []string
+
+	// 2. Filtrar solo los que terminan en ".up.sql"
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".up.sql") {
+			upMigrations = append(upMigrations, f.Name())
+		}
+	}
+
+	// 3. Ordenarlos numéricamente (000001, 000002, etc)
+	sort.Strings(upMigrations)
+
+	// 4. Ejecutar uno por uno
+	for _, filename := range upMigrations {
+		fmt.Printf("Ejecutando: %s... ", filename)
+
+		fullPath := filepath.Join(migrationDir, filename)
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			log.Fatalf("\nError leyendo %s: %v", filename, err)
+		}
+
+		// Ejecutamos el SQL
+		_, err = db.Exec(string(content))
+		if err != nil {
+			// Si el error es "ya existe", lo ignoramos (opcional, pero útil en dev)
+			// Pero mejor dejar que falle si algo está mal en la sintaxis
+			log.Fatalf("\nError ejecutando %s: %v", filename, err)
+		}
+		fmt.Println("OK")
+	}
+
+	fmt.Println("Todas las migraciones aplicadas.")
+}
 
 // --- GRUPOS DE SINCRONIZACIÓN ---
 
 // runSlowSync: Tablas "estáticas" o de configuración
-func runSlowSync(profitDB, pgDB *sql.DB) {
+func runSlowSync(profitDB, pgDB *sqlx.DB) {
 	// Manejo de pánico para que el worker no muera si falla una tabla
 	defer func() {
 		if r := recover(); r != nil {
@@ -76,19 +127,21 @@ func runSlowSync(profitDB, pgDB *sql.DB) {
 	syncLines(profitDB, pgDB)
 	syncCategories(profitDB, pgDB)
 	syncSubLines(profitDB, pgDB)
-	sycnAlmacen(profitDB, pgDB)
+	syncAlmacen(profitDB, pgDB)
 	syncSubAlma(profitDB, pgDB)
 }
 
 // runFastSync: Tablas críticas de venta
-func runFastSync(profitDB, pgDB *sql.DB) {
+func runFastSync(profitDB, pgDB *sqlx.DB) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Error recuperado en Fast Sync:", r)
 		}
 	}()
+	// Descuentos
+	syncDescuento(profitDB, pgDB)
 
-	// 1. Artículos
+	// 1. Artícul	os
 	syncArts(profitDB, pgDB)
 
 	// 2. Stock Detallado
@@ -143,9 +196,20 @@ func runFastSync(profitDB, pgDB *sql.DB) {
 	}
 }
 
-func syncStAlmac(source, des *sql.DB) {
+func syncStAlmac(source, des *sqlx.DB) {
 	fmt.Println("Sincronizando st-almac")
-	rows, err := source.Query("SELECT co_alma, co_art, stock_act, sstock_act, stock_com, sstock_com, stock_lle, sstock_lle, stock_des, sstock_des FROM st_almac")
+	rows, err := source.Query(`
+		SELECT 
+			s.co_alma, 
+			s.co_art, 
+			s.stock_act, s.sstock_act, 
+			s.stock_com, s.sstock_com, 
+			s.stock_lle, s.sstock_lle, 
+			s.stock_des, s.sstock_des 
+		FROM st_almac s
+		INNER JOIN art a ON s.co_art = a.co_art
+		WHERE a.anulado = 0 AND a.art_des NOT LIKE '%NO USAR%'
+	`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -180,7 +244,7 @@ func syncStAlmac(source, des *sql.DB) {
 	fmt.Printf("OK (%d procesadas)\n", count)
 }
 
-func syncSubAlma(source, des *sql.DB) {
+func syncSubAlma(source, des *sqlx.DB) {
 	fmt.Println("Sincronizando sub_alma")
 	rows, err := source.Query("SELECT co_sub, des_sub, co_alma FROM sub_alma")
 	if err != nil {
@@ -208,7 +272,43 @@ func syncSubAlma(source, des *sql.DB) {
 	fmt.Printf("OK (%d procesadas)\n", count)
 }
 
-func sycnAlmacen(source, des *sql.DB) {
+func syncDescuento(source, des *sqlx.DB) {
+	fmt.Println("Sincronizando descuentos")
+	rows, err := source.Query("SELECT co_desc, tipo_cli, tipo_desc, porc1 FROM descuen")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer rows.Close()
+
+	_, _ = des.Exec("TRUNCATE TABLE descuen")
+
+	count := 0
+	for rows.Next() {
+		var co_desc, tipo_cli, tipo_desc string
+		var porc1 float64
+
+		rows.Scan(&co_desc, &tipo_cli, &tipo_desc, &porc1)
+
+		_, err := des.Exec(`
+			INSERT INTO descuen (co_desc, tipo_cli, tipo_desc, porc1) VALUES ($1, $2, $3, $4)
+		`,
+			strings.TrimSpace(co_desc),
+			strings.TrimSpace(tipo_cli),
+			strings.TrimSpace(tipo_desc),
+			porc1)
+
+		if err != nil {
+			log.Printf("Error descuento %s %s: %v", co_desc, tipo_cli, err)
+		} else {
+			count++
+		}
+	}
+
+	fmt.Printf("OK (%d procesados)\n", count)
+}
+
+func syncAlmacen(source, des *sqlx.DB) {
 	fmt.Println("Sincronizando almacenes")
 	rows, err := source.Query("SELECT co_alma, alma_des FROM almacen")
 	if err != nil {
@@ -236,7 +336,7 @@ func sycnAlmacen(source, des *sql.DB) {
 	fmt.Printf("OK (%d procesadas)\n", count)
 }
 
-func syncLines(source, dest *sql.DB) {
+func syncLines(source, dest *sqlx.DB) {
 	fmt.Println("Sincronizando lineas...")
 	rows, err := source.Query("SELECT co_lin, lin_des FROM lin_art")
 	if err != nil {
@@ -264,7 +364,7 @@ func syncLines(source, dest *sql.DB) {
 	fmt.Printf("OK (%d procesadas)\n", count)
 }
 
-func syncCategories(source, dest *sql.DB) {
+func syncCategories(source, dest *sqlx.DB) {
 	fmt.Println("Sincronizando Categorias...")
 
 	rows, err := source.Query("SELECT co_cat, cat_des FROM cat_art")
@@ -292,7 +392,7 @@ func syncCategories(source, dest *sql.DB) {
 	fmt.Printf("OK (%d procesadas)\n", count)
 }
 
-func syncSubLines(source, dest *sql.DB) {
+func syncSubLines(source, dest *sqlx.DB) {
 	fmt.Println("Sincronizando sub-lineas...")
 
 	rows, err := source.Query("SELECT co_subl, subl_des, co_lin FROM sub_lin")
@@ -320,7 +420,7 @@ func syncSubLines(source, dest *sql.DB) {
 	fmt.Printf("OK (%d procesadas)\n", count)
 }
 
-func syncArts(source, dest *sql.DB) {
+func syncArts(source, dest *sqlx.DB) {
 	fmt.Print("Sincronizando Articulos")
 
 	query := `
@@ -366,11 +466,16 @@ func syncArts(source, dest *sql.DB) {
 			return sql.NullString{String: s, Valid: true}
 		}
 
-		// 1. Limpia el código del artículo ANTES de la query
 		cleanCoArt := strings.TrimSpace(co_art)
+		var imageCo string
+		if cleanCoArt[len(cleanCoArt)-1] == 'C' || cleanCoArt[len(cleanCoArt)-1] == 'A' {
+			imageCo = cleanCoArt[:len(cleanCoArt)-1]
+		} else {
+			imageCo = cleanCoArt
+		}
 
 		// 2. Genera la URL en Go
-		imageUrl := fmt.Sprintf("https://imagenes.cristmedicals.com/imagenes-v3/imagenes/%s.jpg", cleanCoArt)
+		imageUrl := fmt.Sprintf("https://imagenes.cristmedicals.com/imagenes-v3/imagenes/%s.jpg", imageCo)
 
 		_, err := dest.Exec(`
 			INSERT INTO art (co_art, art_des, stock_act, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4, image_url, last_sync)
@@ -410,5 +515,3 @@ func syncArts(source, dest *sql.DB) {
 	}
 	fmt.Printf("\nTotal de articulos sincronizados: %d\n", count)
 }
-
-

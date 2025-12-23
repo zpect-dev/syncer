@@ -24,7 +24,7 @@ func Load() *Config {
 	return &Config{
 		PostgresURL: getEnv("POSTGRES_URL", ""),
 		ProfitDBURL: getEnv("PROFIT_DB_URL", ""),
-		Port:        getEnv("PORT", "8080"),
+		Port:        getEnv("PORT", "8050"),
 	}
 }
 
