@@ -17,7 +17,7 @@ func NewRouter(catHandler *handlers.CatalogHandler) http.Handler {
 	r.Use(middleware.Recoverer)
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://192.168.4.64:5173"},
+		AllowedOrigins:   []string{"http://localhost:5173", "http://192.168.4.217:5173"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
