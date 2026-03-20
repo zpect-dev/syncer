@@ -46,17 +46,17 @@ services:
             - POSTGRES_URL=postgres://postgres:secret@db:5432/profit_ecommerce?sslmode=disable
             - REDIS_URL=redis:6379
 
-    syncer:
-        build: .
-        container_name: profit_syncer
-        command: /app/syncer
-        depends_on:
-            db:
-                condition: service_healthy
-        env_file:
-            - .env
-        environment:
-            - POSTGRES_URL=postgres://postgres:secret@db:5432/profit_ecommerce?sslmode=disable
+    # syncer:
+    #     build: .
+    #     container_name: profit_syncer
+    #     command: /app/syncer
+    #     depends_on:
+    #         db:
+    #             condition: service_healthy
+    #     env_file:
+    #         - .env
+    #     environment:
+    #         - POSTGRES_URL=postgres://postgres:secret@db:5432/profit_ecommerce?sslmode=disable
 
     adminer:
         image: adminer
