@@ -102,7 +102,7 @@ func (r *Repository) ListProducts(ctx context.Context, page int, limit int, sear
 	}
 
 	// Filtro de búsqueda: Si hay texto, usamos FTS con prefix matching (to_tsquery).
-	searchFilter := "CAST($1 AS TEXT) = '' OR 1=1"
+	searchFilter := "(CAST($1 AS TEXT) = '' OR 1=1)"
 	orderBy := "a.art_des ASC"
 	ftsQuery := ""
 	

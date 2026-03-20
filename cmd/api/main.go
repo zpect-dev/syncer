@@ -57,7 +57,8 @@ func main() {
 	// 2. INYECCIÓN DE DEPENDENCIAS (wiring)
 	// -- Dominio Catálogo
 	catRepo := catalog.NewRepository(dbConn)
-	catHandler := handlers.NewCatalogHandler(catRepo)
+	catSvc := catalog.NewCatalogService(catRepo)
+	catHandler := handlers.NewCatalogHandler(catSvc)
 
 	// -- Dominio Carrito
 	cartCacheRepo := cart.NewRedisCartRepository(redisClient)

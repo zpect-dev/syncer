@@ -11,11 +11,11 @@ import (
 )
 
 type CatalogHandler struct {
-	repo catalog.CatalogRepository
+	svc catalog.CatalogService
 }
 
-func NewCatalogHandler(repo catalog.CatalogRepository) *CatalogHandler {
-	return &CatalogHandler{repo: repo}
+func NewCatalogHandler(svc catalog.CatalogService) *CatalogHandler {
+	return &CatalogHandler{svc: svc}
 }
 
 func (h *CatalogHandler) GetByIDs(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +36,7 @@ func (h *CatalogHandler) GetByIDs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	products, err := h.repo.GetProductsByIDs(r.Context(), req.IDs)
+	products, err := h.svc.GetProductsByIDs(r.Context(), req.IDs)
 	if err != nil {
 		fmt.Printf("Error obteniendo productos batch: %v\n", err)
 		http.Error(w, "Error interno del servidor", http.StatusInternalServerError)
@@ -58,7 +58,7 @@ func (h *CatalogHandler) Single(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, err := h.repo.GetByID(r.Context(), id)
+	product, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
 		fmt.Printf("Error: %s", err)
 		http.Error(w, "Erro interno en el servidor", http.StatusInternalServerError)
@@ -72,7 +72,10 @@ func (h *CatalogHandler) Single(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) List(w http.ResponseWriter, r *http.Request) {
-	search := r.URL.Query().Get("q")
+	search := r.URL.Query().Get("search")
+	if search == "" {
+		search = r.URL.Query().Get("q")
+	}
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	category := r.URL.Query().Get("category")
@@ -87,7 +90,7 @@ func (h *CatalogHandler) List(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 
-	products, err := h.repo.ListProducts(r.Context(), page, limit, search, category, inStock, hasDiscount)
+	products, err := h.svc.ListProducts(r.Context(), page, limit, search, category, inStock, hasDiscount)
 	if err != nil {
 		fmt.Printf("Error ListProducts: %v\n", err)
 		http.Error(w, "Error interno del servidor", http.StatusInternalServerError)
@@ -104,7 +107,7 @@ func (h *CatalogHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CatalogHandler) Categories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.repo.ListCategories(r.Context())
+	categories, err := h.svc.ListCategories(r.Context())
 	if err != nil {
 		http.Error(w, "Error interno del servidor", http.StatusInternalServerError)
 		return

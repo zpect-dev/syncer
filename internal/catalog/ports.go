@@ -10,3 +10,11 @@ type CatalogRepository interface {
 	GetProductsByIDs(ctx context.Context, ids []string) ([]Product, error)
 	ListCategories(ctx context.Context) ([]Category, error)
 }
+
+// CatalogService define la lógica de negocio del catálogo.
+type CatalogService interface {
+	ListProducts(ctx context.Context, page, limit int, search, category string, inStock, hasDiscount bool) ([]Product, error)
+	GetByID(ctx context.Context, id string) (Product, error)
+	GetProductsByIDs(ctx context.Context, ids []string) ([]Product, error)
+	ListCategories(ctx context.Context) ([]Category, error)
+}
