@@ -26,6 +26,8 @@ RUN apk --no-cache add ca-certificates tzdata
 
 # Copiar binarios del builder
 COPY --from=builder /app/bin/syncer /app/syncer
+COPY --from=builder /app/db ./db
 
+# Usuario no root por seguridad
 RUN adduser -D nonroot
 USER nonroot
