@@ -1,0 +1,1 @@
+ALTER TABLE art DROP COLUMN inventory_json;
