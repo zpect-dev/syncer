@@ -1,0 +1,16 @@
+services:
+    syncer:
+        build: .
+        container_name: profit_syncer
+        command: /app/syncer
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            - POSTGRES_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
+        networks:
+            - profit_network
+
+networks:
+    profit_network:
+        external: true
