@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS art (
     campo4 VARCHAR(60),
 
     -- Datos para la web
-    image_url VARCHAR(255),
+    -- image_url VARCHAR(255),
     is_active   BOOLEAN DEFAULT true,
     last_sync   TIMESTAMP DEFAULT NOW(),
 

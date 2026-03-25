@@ -7,7 +7,6 @@ import (
 )
 
 // Service orquesta la sincronización entre Profit (origen) y PostgreSQL (destino).
-// Depende de interfaces (SourceRepo, DestRepo), no de implementaciones concretas.
 type Service struct {
 	source SourceRepo
 	dest   DestRepo
@@ -18,19 +17,8 @@ func NewService(source SourceRepo, dest DestRepo) *Service {
 	return &Service{source: source, dest: dest}
 }
 
-// GenerateImageURL genera la URL de imagen a partir de un código de artículo.
-// Lógica de negocio: quita el sufijo 'C' o 'A' del código y construye la URL.
-func GenerateImageURL(coArt string) string {
-	imageCo := coArt
-	if len(coArt) > 0 && (coArt[len(coArt)-1] == 'C' || coArt[len(coArt)-1] == 'A') {
-		imageCo = coArt[:len(coArt)-1]
-	}
-	return fmt.Sprintf("https://imagenes.cristmedicals.com/imagenes-v3/imagenes/%s.jpg", imageCo)
-}
 
 // RunSlowSync sincroniza las tablas "estáticas" o de configuración (maestros).
-// Se ejecuta con poca frecuencia (ej. cada 1 hora).
-// Respeta la cancelación del contexto: si ctx se cancela, el ciclo se detiene.
 func (s *Service) RunSlowSync(ctx context.Context) {
 	fmt.Println("--- Slow Sync: Maestros ---")
 
@@ -98,8 +86,6 @@ func (s *Service) RunSlowSync(ctx context.Context) {
 }
 
 // RunFastSync sincroniza las tablas críticas de venta (artículos, stock, precios, descuentos).
-// Se ejecuta con alta frecuencia (ej. cada 1 minuto).
-// Usa paginación (pageSize) para no cargar tablas grandes en memoria de golpe.
 func (s *Service) RunFastSync(ctx context.Context) {
 	fmt.Println("--- Fast Sync: Stock/Precios ---")
 
@@ -158,7 +144,6 @@ func (s *Service) RunFastSync(ctx context.Context) {
 }
 
 // syncArticlesPaginated lee artículos en páginas de pageSize, aplica la transformación
-// de ImageURL (lógica de negocio), y los envía al repositorio destino.
 func (s *Service) syncArticlesPaginated(ctx context.Context) {
 	totalCount := 0
 	offset := 0
@@ -176,13 +161,9 @@ func (s *Service) syncArticlesPaginated(ctx context.Context) {
 		}
 
 		if len(page) == 0 {
-			break // No hay más páginas
+			break
 		}
 
-		// Lógica de negocio: generar ImageURL para cada artículo
-		for i := range page {
-			page[i].ImageURL = GenerateImageURL(page[i].CoArt)
-		}
 
 		count, _ := s.dest.UpsertArticles(ctx, page)
 		totalCount += count
@@ -191,7 +172,7 @@ func (s *Service) syncArticlesPaginated(ctx context.Context) {
 		fmt.Printf("  Artículos sincronizados: página offset=%d, filas=%d\n", offset-len(page), count)
 
 		if len(page) < pageSize {
-			break // Última página parcial
+			break
 		}
 	}
 

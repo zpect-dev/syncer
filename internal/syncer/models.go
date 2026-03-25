@@ -56,7 +56,7 @@ type Article struct {
 	CoCat    string  `db:"co_cat"`
 	CoSubl   string  `db:"co_subl"`
 	Campo4   string  `db:"campo4"`
-	ImageURL string  // Generado por Service, no mapeado a BD origen
+	// ImageURL string
 }
 
 // StAlmac representa un registro de stock por almacén (tabla st_almac).
@@ -89,4 +89,8 @@ type Cliente struct {
 	Inactivo bool    `db:"inactivo" json:"inactivo"`
 	Login    float64 `db:"login" json:"login"`
 	MontCre  float64 `db:"mont_cre" json:"mont_cre"`
+	Direc1   string  `db:"direc1" json:"direc1"`
+	Telefonos string `db:"telefonos" json:"telefonos"`
+	Fax      string  `db:"fax" json:"fax"`
+	DescGlob float64 `db:"desc_glob" json:"desc_glob"`
 }

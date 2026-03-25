@@ -31,8 +31,6 @@ func NewDestRepository(db *sqlx.DB) *DestRepository {
 	return &DestRepository{db: db}
 }
 
-// --- SOURCE: Lectura desde Profit ---
-
 func (r *SourceRepository) FetchLinArt(ctx context.Context) ([]LinArt, error) {
 	var items []LinArt
 	rows, err := r.db.QueryContext(ctx, "SELECT co_lin, lin_des FROM lin_art")
@@ -269,7 +267,7 @@ func (r *SourceRepository) FetchTiposCli(ctx context.Context) ([]TipoCli, error)
 
 func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error) {
 	query := `
-		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre 
+		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob 
 		FROM clientes 
 		ORDER BY co_cli 
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -283,9 +281,9 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 	var items []Cliente
 	for rows.Next() {
 		var item Cliente
-		var loginStr, montCreStr sql.NullString
+		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr sql.NullString
 		
-		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr); err != nil {
+		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr); err != nil {
 			log.Printf("Error scan cliente: %v", err)
 			continue
 		}
@@ -304,17 +302,27 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 				item.MontCre = val
 			}
 		}
+		if direc1Str.Valid {
+			item.Direc1 = strings.TrimSpace(direc1Str.String)
+		}
+		if telefonosStr.Valid {
+			item.Telefonos = strings.TrimSpace(telefonosStr.String)
+		}
+		if faxStr.Valid {
+			item.Fax = strings.TrimSpace(faxStr.String)
+		}
+		if descGlobStr.Valid {
+			if val, err := strconv.ParseFloat(strings.TrimSpace(descGlobStr.String), 64); err == nil {
+				item.DescGlob = val
+			}
+		}
 
 		items = append(items, item)
 	}
 	return items, rows.Err()
 }
 
-// --- DEST: Escritura en PostgreSQL (Batch Inserts) ---
-
 // batchSize define cuántas filas se insertan por query batch.
-// PostgreSQL soporta hasta 65535 parámetros por query.
-// Con la tabla más ancha (art, 14 columnas): 65535/14 = 4681 filas max. 500 es seguro.
 const batchSize = 500
 
 // buildPlaceholders genera los placeholders ($1,$2),($3,$4)... para N filas con colsPerRow columnas.
@@ -333,8 +341,6 @@ func buildPlaceholders(numRows, colsPerRow int) string {
 }
 
 // execBatchWithFallback intenta el batch INSERT. Si falla (ej. FK violation en 1 fila),
-// hace fallback a fila-por-fila para ese chunk, logueando las filas individuales que fallen.
-// queryTemplate debe tener un %s donde van los placeholders VALUES.
 func (r *DestRepository) execBatchWithFallback(ctx context.Context, queryTemplate string, args []interface{}, colsPerRow int) int {
 	// Intento 1: batch completo
 	numRows := len(args) / colsPerRow
@@ -538,7 +544,7 @@ func (r *DestRepository) TruncateAndInsertDescuentos(ctx context.Context, items 
 }
 
 func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (int, error) {
-	const cols = 14
+	const cols = 13
 	count := 0
 
 	toNull := func(s string) sql.NullString {
@@ -562,12 +568,12 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 				item.PrecVta1, item.PrecVta2, item.PrecVta3, item.PrecVta4, item.PrecVta5,
 				item.TipoImp,
 				toNull(item.CoLin), toNull(item.CoCat), toNull(item.CoSubl), toNull(item.Campo4),
-				item.ImageURL,
+				// item.ImageURL,
 			)
 		}
 
 		queryTpl := `
-			INSERT INTO art (co_art, art_des, stock_act, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4, image_url)
+			INSERT INTO art (co_art, art_des, stock_act, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4)
 			VALUES %s
 			ON CONFLICT (co_art) DO UPDATE SET
 				art_des = EXCLUDED.art_des,
@@ -582,7 +588,6 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 				co_cat = EXCLUDED.co_cat,
 				co_subl = EXCLUDED.co_subl,
 				campo4 = EXCLUDED.campo4,
-				image_url = EXCLUDED.image_url,
 				last_sync = NOW()
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
@@ -698,7 +703,7 @@ func (r *DestRepository) UpsertTiposCli(ctx context.Context, items []TipoCli) (i
 }
 
 func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (int, error) {
-	const cols = 7
+	const cols = 11
 	count := 0
 	for i := 0; i < len(items); i += batchSize {
 		end := i + batchSize
@@ -709,18 +714,22 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
-			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre)
+			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob)
 		}
 
 		queryTpl := `
-			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre) VALUES %s
+			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob) VALUES %s
 			ON CONFLICT (co_cli) DO UPDATE SET 
 				tipo = EXCLUDED.tipo, 
 				cli_des = EXCLUDED.cli_des, 
 				rif = EXCLUDED.rif, 
 				inactivo = EXCLUDED.inactivo, 
 				login = EXCLUDED.login,
-				mont_cre = EXCLUDED.mont_cre
+				mont_cre = EXCLUDED.mont_cre,
+				direc1 = EXCLUDED.direc1,
+				telefonos = EXCLUDED.telefonos,
+				fax = EXCLUDED.fax,
+				desc_glob = EXCLUDED.desc_glob
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
 	}
