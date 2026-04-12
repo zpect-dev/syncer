@@ -563,7 +563,7 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
 			args = append(args,
-				item.CoArt, item.ArtDes, item.StockAct,
+				item.CoArt, item.ArtDes,
 				item.PrecVta1, item.PrecVta2, item.PrecVta3, item.PrecVta4, item.PrecVta5,
 				item.TipoImp,
 				toNull(item.CoLin), toNull(item.CoCat), toNull(item.CoSubl), toNull(item.Campo4),
