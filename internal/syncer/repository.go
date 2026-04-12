@@ -632,44 +632,49 @@ func (r *DestRepository) UpsertStAlmac(ctx context.Context, items []StAlmac) (in
 	return count, nil
 }
 
-// RecalculateInventoryJSON recalcula el JSONB de inventario agregado en la tabla art.
 func (r *DestRepository) RecalculateInventoryJSON(ctx context.Context) error {
 	queryJSON := `
-			UPDATE art p
-			SET 
-				inventory_json = subquery.json_data,
-				stock_act = subquery.suma_total_act
+		WITH inventory_agg AS (
+			SELECT 
+				st_agg.co_art,
+				jsonb_object_agg(
+					TRIM(a.co_alma),
+					jsonb_build_object(
+						'nombre', TRIM(a.alma_des),
+						'stock_total', st_agg.total_act,
+						'stock_comprometido', st_agg.total_com,
+						'stock_por_llegar', st_agg.total_lle
+					)
+				) as json_data,
+				SUM(st_agg.total_act) as suma_total_act
 			FROM (
 				SELECT 
-					pre_calculated.co_art,
-					jsonb_object_agg(
-						TRIM(pre_calculated.co_alma),
-						jsonb_build_object(
-							'nombre', TRIM(pre_calculated.alma_des),
-							'stock_total', pre_calculated.total_act,
-							'stock_comprometido', pre_calculated.total_com,
-							'stock_por_llegar', pre_calculated.total_lle
-						)
-					) as json_data,
-					SUM(pre_calculated.total_act) as suma_total_act
-				FROM (
-					SELECT 
-						st.co_art,
-						a.co_alma,
-						a.alma_des,
-						SUM(st.stock_act) as total_act,
-						SUM(st.stock_com) as total_com,
-						SUM(st.stock_lle) as total_lle
-					FROM st_almac st
-					JOIN sub_alma sa ON st.co_alma = sa.co_sub
-					JOIN almacen a ON sa.co_alma = a.co_alma
-					GROUP BY st.co_art, a.co_alma, a.alma_des
-					HAVING SUM(st.stock_act) > 0
-				) pre_calculated
-				GROUP BY pre_calculated.co_art
-			) AS subquery
-			WHERE p.co_art = subquery.co_art;
-		`
+					st.co_art,
+					sa.co_alma,
+					SUM(st.stock_act) as total_act,
+					SUM(st.stock_com) as total_com,
+					SUM(st.stock_lle) as total_lle
+				FROM st_almac st
+				JOIN sub_alma sa ON st.co_alma = sa.co_sub
+				GROUP BY st.co_art, sa.co_alma
+				HAVING SUM(st.stock_act) > 0
+			) st_agg
+			JOIN almacen a ON st_agg.co_alma = a.co_alma
+			GROUP BY st_agg.co_art
+		)
+		UPDATE art p
+		SET 
+			inventory_json = COALESCE(agg.json_data, '{}'::jsonb),
+			stock_act = COALESCE(agg.suma_total_act, 0)
+		FROM art p2
+		LEFT JOIN inventory_agg agg ON p2.co_art = agg.co_art
+		WHERE p.co_art = p2.co_art
+		  AND (
+			  p.stock_act IS DISTINCT FROM COALESCE(agg.suma_total_act, 0)
+			  OR 
+			  p.inventory_json IS DISTINCT FROM COALESCE(agg.json_data, '{}'::jsonb)
+		  );
+	`
 	_, err := r.db.ExecContext(ctx, queryJSON)
 	if err != nil {
 		return fmt.Errorf("error actualizando inventory JSON: %w", err)
