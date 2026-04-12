@@ -45,7 +45,6 @@ type Descuento struct {
 type Article struct {
 	CoArt    string  `db:"co_art"`
 	ArtDes   string  `db:"art_des"`
-	StockAct float64 `db:"stock_act"`
 	PrecVta1 float64 `db:"prec_vta1"`
 	PrecVta2 float64 `db:"prec_vta2"`
 	PrecVta3 float64 `db:"prec_vta3"`
