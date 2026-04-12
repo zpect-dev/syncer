@@ -159,7 +159,6 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 		SELECT
 			co_art, 
 			art_des,
-			stock_act,
 			prec_vta1,
 			prec_vta2,
 			prec_vta3,
@@ -185,7 +184,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 	for rows.Next() {
 		var item Article
 		if err := rows.Scan(
-			&item.CoArt, &item.ArtDes, &item.StockAct,
+			&item.CoArt, &item.ArtDes,
 			&item.PrecVta1, &item.PrecVta2, &item.PrecVta3, &item.PrecVta4, &item.PrecVta5,
 			&item.TipoImp, &item.CoLin, &item.CoCat, &item.CoSubl, &item.Campo4,
 		); err != nil {
@@ -544,7 +543,7 @@ func (r *DestRepository) TruncateAndInsertDescuentos(ctx context.Context, items 
 }
 
 func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (int, error) {
-	const cols = 13
+	const cols = 12
 	count := 0
 
 	toNull := func(s string) sql.NullString {
@@ -573,11 +572,10 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 		}
 
 		queryTpl := `
-			INSERT INTO art (co_art, art_des, stock_act, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4)
+			INSERT INTO art (co_art, art_des, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4)
 			VALUES %s
 			ON CONFLICT (co_art) DO UPDATE SET
 				art_des = EXCLUDED.art_des,
-				stock_act = EXCLUDED.stock_act,
 				prec_vta1 = EXCLUDED.prec_vta1,
 				prec_vta2 = EXCLUDED.prec_vta2,
 				prec_vta3 = EXCLUDED.prec_vta3,
@@ -637,38 +635,41 @@ func (r *DestRepository) UpsertStAlmac(ctx context.Context, items []StAlmac) (in
 // RecalculateInventoryJSON recalcula el JSONB de inventario agregado en la tabla art.
 func (r *DestRepository) RecalculateInventoryJSON(ctx context.Context) error {
 	queryJSON := `
-		UPDATE art p
-		SET inventory_json = subquery.json_data
-		FROM (
-			SELECT 
-				pre_calculated.co_art,
-				jsonb_object_agg(
-					TRIM(pre_calculated.co_alma),
-					jsonb_build_object(
-						'nombre', TRIM(pre_calculated.alma_des),
-						'stock_total', pre_calculated.total_act,
-						'stock_comprometido', pre_calculated.total_com,
-						'stock_por_llegar', pre_calculated.total_lle
-					)
-				) as json_data
+			UPDATE art p
+			SET 
+				inventory_json = subquery.json_data,
+				stock_act = subquery.suma_total_act
 			FROM (
 				SELECT 
-					st.co_art,
-					a.co_alma,
-					a.alma_des,
-					SUM(st.stock_act) as total_act,
-					SUM(st.stock_com) as total_com,
-					SUM(st.stock_lle) as total_lle
-				FROM st_almac st
-				JOIN sub_alma sa ON st.co_alma = sa.co_sub
-				JOIN almacen a ON sa.co_alma = a.co_alma
-				GROUP BY st.co_art, a.co_alma, a.alma_des
-				HAVING SUM(st.stock_act) > 0
-			) pre_calculated
-			GROUP BY pre_calculated.co_art
-		) AS subquery
-		WHERE p.co_art = subquery.co_art;
-	`
+					pre_calculated.co_art,
+					jsonb_object_agg(
+						TRIM(pre_calculated.co_alma),
+						jsonb_build_object(
+							'nombre', TRIM(pre_calculated.alma_des),
+							'stock_total', pre_calculated.total_act,
+							'stock_comprometido', pre_calculated.total_com,
+							'stock_por_llegar', pre_calculated.total_lle
+						)
+					) as json_data,
+					SUM(pre_calculated.total_act) as suma_total_act
+				FROM (
+					SELECT 
+						st.co_art,
+						a.co_alma,
+						a.alma_des,
+						SUM(st.stock_act) as total_act,
+						SUM(st.stock_com) as total_com,
+						SUM(st.stock_lle) as total_lle
+					FROM st_almac st
+					JOIN sub_alma sa ON st.co_alma = sa.co_sub
+					JOIN almacen a ON sa.co_alma = a.co_alma
+					GROUP BY st.co_art, a.co_alma, a.alma_des
+					HAVING SUM(st.stock_act) > 0
+				) pre_calculated
+				GROUP BY pre_calculated.co_art
+			) AS subquery
+			WHERE p.co_art = subquery.co_art;
+		`
 	_, err := r.db.ExecContext(ctx, queryJSON)
 	if err != nil {
 		return fmt.Errorf("error actualizando inventory JSON: %w", err)
