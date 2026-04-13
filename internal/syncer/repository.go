@@ -157,21 +157,23 @@ func (r *SourceRepository) FetchDescuentos(ctx context.Context) ([]Descuento, er
 func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset int) ([]Article, error) {
 	query := `
 		SELECT
-			co_art, 
-			art_des,
-			prec_vta1,
-			prec_vta2,
-			prec_vta3,
-			prec_vta4,
-			prec_vta5,
-			tipo_imp,
-			COALESCE(co_lin, ''),
-			COALESCE(co_cat, ''),
-			COALESCE(co_subl, ''),
-			COALESCE(campo4, '')
-		FROM art
-		WHERE anulado = 0 AND art_des NOT LIKE '%NO USAR%'
-		ORDER BY co_art
+			a.co_art, 
+			a.art_des,
+			a.prec_vta1,
+			a.prec_vta2,
+			a.prec_vta3,
+			a.prec_vta4,
+			a.prec_vta5,
+			a.tipo_imp,
+			COALESCE(a.co_lin, ''),
+			COALESCE(a.co_cat, ''),
+			COALESCE(a.co_subl, ''),
+			COALESCE(a.campo4, ''),
+			COALESCE(c.cat_des, '')
+		FROM art a
+		LEFT JOIN cat_art c ON a.co_cat = c.co_cat
+		WHERE a.anulado = 0 AND a.art_des NOT LIKE '%NO USAR%'
+		ORDER BY a.co_art
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
 	`
 	rows, err := r.db.QueryContext(ctx, query, sql.Named("offset", offset), sql.Named("limit", limit))
@@ -186,7 +188,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 		if err := rows.Scan(
 			&item.CoArt, &item.ArtDes,
 			&item.PrecVta1, &item.PrecVta2, &item.PrecVta3, &item.PrecVta4, &item.PrecVta5,
-			&item.TipoImp, &item.CoLin, &item.CoCat, &item.CoSubl, &item.Campo4,
+			&item.TipoImp, &item.CoLin, &item.CoCat, &item.CoSubl, &item.Campo4, &item.CatDes,
 		); err != nil {
 			log.Printf("Error scan article: %v", err)
 			continue
@@ -198,6 +200,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 		item.CoCat = strings.TrimSpace(item.CoCat)
 		item.CoSubl = strings.TrimSpace(item.CoSubl)
 		item.Campo4 = strings.TrimSpace(item.Campo4)
+		item.CatDes = strings.TrimSpace(item.CatDes)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -543,7 +546,7 @@ func (r *DestRepository) TruncateAndInsertDescuentos(ctx context.Context, items 
 }
 
 func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (int, error) {
-	const cols = 12
+	const cols = 13
 	count := 0
 
 	toNull := func(s string) sql.NullString {
@@ -566,13 +569,13 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 				item.CoArt, item.ArtDes,
 				item.PrecVta1, item.PrecVta2, item.PrecVta3, item.PrecVta4, item.PrecVta5,
 				item.TipoImp,
-				toNull(item.CoLin), toNull(item.CoCat), toNull(item.CoSubl), toNull(item.Campo4),
+				toNull(item.CoLin), toNull(item.CoCat), toNull(item.CoSubl), toNull(item.Campo4), item.CatDes,
 				// item.ImageURL,
 			)
 		}
 
 		queryTpl := `
-			INSERT INTO art (co_art, art_des, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4)
+			INSERT INTO art (co_art, art_des, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4, cat_des)
 			VALUES %s
 			ON CONFLICT (co_art) DO UPDATE SET
 				art_des = EXCLUDED.art_des,
@@ -586,6 +589,7 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 				co_cat = EXCLUDED.co_cat,
 				co_subl = EXCLUDED.co_subl,
 				campo4 = EXCLUDED.campo4,
+				cat_des = EXCLUDED.cat_des,
 				last_sync = NOW()
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
