@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS desc_prov;
+DROP TABLE IF EXISTS desc_ptc;

@@ -18,6 +18,8 @@ type SourceRepo interface {
 	FetchArticlesPage(ctx context.Context, limit, offset int) ([]Article, error)
 	FetchStAlmacPage(ctx context.Context, limit, offset int) ([]StAlmac, error)
 	FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error)
+	FetchDescPtc(ctx context.Context) ([]DescPtc, error)
+	FetchDescProv(ctx context.Context) ([]DescProv, error)
 }
 
 // DestRepo define el contrato de escritura contra la BD destino (PostgreSQL).
@@ -34,4 +36,6 @@ type DestRepo interface {
 	UpsertStAlmac(ctx context.Context, items []StAlmac) (int, error)
 	UpsertClientes(ctx context.Context, items []Cliente) (int, error)
 	RecalculateInventoryJSON(ctx context.Context) error
+	TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error)
+	TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error)
 }
