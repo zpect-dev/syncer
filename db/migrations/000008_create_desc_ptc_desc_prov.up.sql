@@ -11,9 +11,6 @@ CREATE TABLE IF NOT EXISTS desc_ptc (
     porc3    DECIMAL(18,5)  DEFAULT 0,
     porc4    DECIMAL(18,5)  DEFAULT 0,
     porc5    DECIMAL(18,5)  DEFAULT 0,
-    co_us_in VARCHAR(30),
-    fe_us_in TIMESTAMP,
-    co_sucu  VARCHAR(30),
     PRIMARY KEY (co_prov, tipo_cli)
 );
 
@@ -30,8 +27,5 @@ CREATE TABLE IF NOT EXISTS desc_prov (
     porc3    DECIMAL(18,5)  DEFAULT 0,
     porc4    DECIMAL(18,5)  DEFAULT 0,
     porc5    DECIMAL(18,5)  DEFAULT 0,
-    co_us_in VARCHAR(30),
-    fe_us_in TIMESTAMP,
-    co_sucu  VARCHAR(30),
     PRIMARY KEY (co_prov, co_cli)
 );

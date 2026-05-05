@@ -1,7 +1,5 @@
 package syncer
 
-import "time"
-
 // LinArt representa una línea de artículo (tabla lin_art).
 type LinArt struct {
 	CoLin  string `db:"co_lin"`
@@ -84,40 +82,34 @@ type TipoCli struct {
 
 // DescPtc representa un descuento por proveedor y tipo de cliente (tabla desc_ptc).
 type DescPtc struct {
-	CoProv  string     `db:"co_prov"`
-	TipoCli string     `db:"tipo_cli"`
-	Hasta1  float64    `db:"hasta1"`
-	Hasta2  float64    `db:"hasta2"`
-	Hasta3  float64    `db:"hasta3"`
-	Hasta4  float64    `db:"hasta4"`
-	Hasta5  float64    `db:"hasta5"`
-	Porc1   float64    `db:"porc1"`
-	Porc2   float64    `db:"porc2"`
-	Porc3   float64    `db:"porc3"`
-	Porc4   float64    `db:"porc4"`
-	Porc5   float64    `db:"porc5"`
-	CoUsIn  string     `db:"co_us_in"`
-	FeUsIn  *time.Time `db:"fe_us_in"`
-	CoSucu  string     `db:"co_sucu"`
+	CoProv  string  `db:"co_prov"`
+	TipoCli string  `db:"tipo_cli"`
+	Hasta1  float64 `db:"hasta1"`
+	Hasta2  float64 `db:"hasta2"`
+	Hasta3  float64 `db:"hasta3"`
+	Hasta4  float64 `db:"hasta4"`
+	Hasta5  float64 `db:"hasta5"`
+	Porc1   float64 `db:"porc1"`
+	Porc2   float64 `db:"porc2"`
+	Porc3   float64 `db:"porc3"`
+	Porc4   float64 `db:"porc4"`
+	Porc5   float64 `db:"porc5"`
 }
 
 // DescProv representa un descuento por proveedor y cliente específico (tabla desc_prov).
 type DescProv struct {
-	CoProv string     `db:"co_prov"`
-	CoCli  string     `db:"co_cli"`
-	Hasta1 float64    `db:"hasta1"`
-	Hasta2 float64    `db:"hasta2"`
-	Hasta3 float64    `db:"hasta3"`
-	Hasta4 float64    `db:"hasta4"`
-	Hasta5 float64    `db:"hasta5"`
-	Porc1  float64    `db:"porc1"`
-	Porc2  float64    `db:"porc2"`
-	Porc3  float64    `db:"porc3"`
-	Porc4  float64    `db:"porc4"`
-	Porc5  float64    `db:"porc5"`
-	CoUsIn string     `db:"co_us_in"`
-	FeUsIn *time.Time `db:"fe_us_in"`
-	CoSucu string     `db:"co_sucu"`
+	CoProv string  `db:"co_prov"`
+	CoCli  string  `db:"co_cli"`
+	Hasta1 float64 `db:"hasta1"`
+	Hasta2 float64 `db:"hasta2"`
+	Hasta3 float64 `db:"hasta3"`
+	Hasta4 float64 `db:"hasta4"`
+	Hasta5 float64 `db:"hasta5"`
+	Porc1  float64 `db:"porc1"`
+	Porc2  float64 `db:"porc2"`
+	Porc3  float64 `db:"porc3"`
+	Porc4  float64 `db:"porc4"`
+	Porc5  float64 `db:"porc5"`
 }
 
 // Cliente representa el registro master del cliente extraído desde (profit clientes).

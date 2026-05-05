@@ -329,8 +329,7 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT co_prov, tipo_cli,
 		       hasta1, hasta2, hasta3, hasta4, hasta5,
-		       porc1, porc2, porc3, porc4, porc5,
-		       co_us_in, fe_us_in, co_sucu
+		       porc1, porc2, porc3, porc4, porc5
 		FROM desc_ptc
 	`)
 	if err != nil {
@@ -339,28 +338,16 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 	defer rows.Close()
 	for rows.Next() {
 		var item DescPtc
-		var coUsIn, coSucu sql.NullString
-		var feUsIn sql.NullTime
 		if err := rows.Scan(
 			&item.CoProv, &item.TipoCli,
 			&item.Hasta1, &item.Hasta2, &item.Hasta3, &item.Hasta4, &item.Hasta5,
 			&item.Porc1, &item.Porc2, &item.Porc3, &item.Porc4, &item.Porc5,
-			&coUsIn, &feUsIn, &coSucu,
 		); err != nil {
 			log.Printf("Error scan desc_ptc: %v", err)
 			continue
 		}
 		item.CoProv = strings.TrimSpace(item.CoProv)
 		item.TipoCli = strings.TrimSpace(item.TipoCli)
-		if coUsIn.Valid {
-			item.CoUsIn = strings.TrimSpace(coUsIn.String)
-		}
-		if feUsIn.Valid {
-			item.FeUsIn = &feUsIn.Time
-		}
-		if coSucu.Valid {
-			item.CoSucu = strings.TrimSpace(coSucu.String)
-		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -371,8 +358,7 @@ func (r *SourceRepository) FetchDescProv(ctx context.Context) ([]DescProv, error
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT co_prov, co_cli,
 		       hasta1, hasta2, hasta3, hasta4, hasta5,
-		       porc1, porc2, porc3, porc4, porc5,
-		       co_us_in, fe_us_in, co_sucu
+		       porc1, porc2, porc3, porc4, porc5
 		FROM desc_prov
 	`)
 	if err != nil {
@@ -381,28 +367,16 @@ func (r *SourceRepository) FetchDescProv(ctx context.Context) ([]DescProv, error
 	defer rows.Close()
 	for rows.Next() {
 		var item DescProv
-		var coUsIn, coSucu sql.NullString
-		var feUsIn sql.NullTime
 		if err := rows.Scan(
 			&item.CoProv, &item.CoCli,
 			&item.Hasta1, &item.Hasta2, &item.Hasta3, &item.Hasta4, &item.Hasta5,
 			&item.Porc1, &item.Porc2, &item.Porc3, &item.Porc4, &item.Porc5,
-			&coUsIn, &feUsIn, &coSucu,
 		); err != nil {
 			log.Printf("Error scan desc_prov: %v", err)
 			continue
 		}
 		item.CoProv = strings.TrimSpace(item.CoProv)
 		item.CoCli = strings.TrimSpace(item.CoCli)
-		if coUsIn.Valid {
-			item.CoUsIn = strings.TrimSpace(coUsIn.String)
-		}
-		if feUsIn.Valid {
-			item.FeUsIn = &feUsIn.Time
-		}
-		if coSucu.Valid {
-			item.CoSucu = strings.TrimSpace(coSucu.String)
-		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -630,7 +604,7 @@ func (r *DestRepository) TruncateAndInsertDescuentos(ctx context.Context, items 
 }
 
 func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error) {
-	const cols = 15
+	const cols = 12
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -654,7 +628,7 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 		query := fmt.Sprintf(`
 			INSERT INTO desc_ptc
 			(co_prov, tipo_cli, hasta1, hasta2, hasta3, hasta4, hasta5,
-			 porc1, porc2, porc3, porc4, porc5, co_us_in, fe_us_in, co_sucu)
+			 porc1, porc2, porc3, porc4, porc5)
 			VALUES %s
 		`, placeholders)
 
@@ -664,7 +638,6 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 				item.CoProv, item.TipoCli,
 				item.Hasta1, item.Hasta2, item.Hasta3, item.Hasta4, item.Hasta5,
 				item.Porc1, item.Porc2, item.Porc3, item.Porc4, item.Porc5,
-				nullableString(item.CoUsIn), item.FeUsIn, nullableString(item.CoSucu),
 			)
 		}
 
@@ -681,7 +654,7 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 }
 
 func (r *DestRepository) TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error) {
-	const cols = 15
+	const cols = 12
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -705,7 +678,7 @@ func (r *DestRepository) TruncateAndInsertDescProv(ctx context.Context, items []
 		query := fmt.Sprintf(`
 			INSERT INTO desc_prov
 			(co_prov, co_cli, hasta1, hasta2, hasta3, hasta4, hasta5,
-			 porc1, porc2, porc3, porc4, porc5, co_us_in, fe_us_in, co_sucu)
+			 porc1, porc2, porc3, porc4, porc5)
 			VALUES %s
 		`, placeholders)
 
@@ -715,7 +688,6 @@ func (r *DestRepository) TruncateAndInsertDescProv(ctx context.Context, items []
 				item.CoProv, item.CoCli,
 				item.Hasta1, item.Hasta2, item.Hasta3, item.Hasta4, item.Hasta5,
 				item.Porc1, item.Porc2, item.Porc3, item.Porc4, item.Porc5,
-				nullableString(item.CoUsIn), item.FeUsIn, nullableString(item.CoSucu),
 			)
 		}
 
@@ -729,14 +701,6 @@ func (r *DestRepository) TruncateAndInsertDescProv(ctx context.Context, items []
 		return count, fmt.Errorf("error commit desc_prov: %w", err)
 	}
 	return count, nil
-}
-
-// nullableString convierte string vacío a sql.NullString nulo.
-func nullableString(s string) sql.NullString {
-	if s == "" {
-		return sql.NullString{}
-	}
-	return sql.NullString{String: s, Valid: true}
 }
 
 func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (int, error) {
