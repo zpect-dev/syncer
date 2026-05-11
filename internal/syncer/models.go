@@ -80,6 +80,38 @@ type TipoCli struct {
 	PrecioA string `db:"precio_a" json:"precio_a"`
 }
 
+// DescPtc representa un descuento por proveedor y tipo de cliente (tabla desc_ptc).
+type DescPtc struct {
+	CoProv  string  `db:"co_prov"`
+	TipoCli string  `db:"tipo_cli"`
+	Hasta1  float64 `db:"hasta1"`
+	Hasta2  float64 `db:"hasta2"`
+	Hasta3  float64 `db:"hasta3"`
+	Hasta4  float64 `db:"hasta4"`
+	Hasta5  float64 `db:"hasta5"`
+	Porc1   float64 `db:"porc1"`
+	Porc2   float64 `db:"porc2"`
+	Porc3   float64 `db:"porc3"`
+	Porc4   float64 `db:"porc4"`
+	Porc5   float64 `db:"porc5"`
+}
+
+// DescProv representa un descuento por proveedor y cliente específico (tabla desc_prov).
+type DescProv struct {
+	CoProv string  `db:"co_prov"`
+	CoCli  string  `db:"co_cli"`
+	Hasta1 float64 `db:"hasta1"`
+	Hasta2 float64 `db:"hasta2"`
+	Hasta3 float64 `db:"hasta3"`
+	Hasta4 float64 `db:"hasta4"`
+	Hasta5 float64 `db:"hasta5"`
+	Porc1  float64 `db:"porc1"`
+	Porc2  float64 `db:"porc2"`
+	Porc3  float64 `db:"porc3"`
+	Porc4  float64 `db:"porc4"`
+	Porc5  float64 `db:"porc5"`
+}
+
 // Cliente representa el registro master del cliente extraído desde (profit clientes).
 type Cliente struct {
 	CoCli    string  `db:"co_cli" json:"co_cli"`

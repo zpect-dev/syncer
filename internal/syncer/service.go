@@ -128,7 +128,30 @@ func (s *Service) RunFastSync(ctx context.Context) {
 	}
 	s.syncClientesPaginated(ctx)
 
-	// 5. Recalcular JSON de inventario
+	// 5. Descuentos por proveedor/tipo cliente y por proveedor/cliente
+	if err := ctx.Err(); err != nil {
+		log.Printf("Fast Sync cancelado antes de desc_ptc: %v", err)
+		return
+	}
+	if items, err := s.source.FetchDescPtc(ctx); err != nil {
+		log.Printf("Error fetching desc_ptc: %v", err)
+	} else {
+		count, _ := s.dest.TruncateAndInsertDescPtc(ctx, items)
+		fmt.Printf("Desc por tipo cliente sincronizados: %d\n", count)
+	}
+
+	if err := ctx.Err(); err != nil {
+		log.Printf("Fast Sync cancelado antes de desc_prov: %v", err)
+		return
+	}
+	if items, err := s.source.FetchDescProv(ctx); err != nil {
+		log.Printf("Error fetching desc_prov: %v", err)
+	} else {
+		count, _ := s.dest.TruncateAndInsertDescProv(ctx, items)
+		fmt.Printf("Desc por cliente sincronizados: %d\n", count)
+	}
+
+	// 6. Recalcular JSON de inventario
 	if err := ctx.Err(); err != nil {
 		log.Printf("Fast Sync cancelado antes de recalcular JSON: %v", err)
 		return
