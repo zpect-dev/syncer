@@ -327,7 +327,7 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) {
 	var items []DescPtc
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT co_prov, tipo_cli,
+		SELECT co_prov,
 		       hasta1, hasta2, hasta3, hasta4, hasta5,
 		       porc1, porc2, porc3, porc4, porc5
 		FROM desc_ptc
@@ -339,7 +339,7 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 	for rows.Next() {
 		var item DescPtc
 		if err := rows.Scan(
-			&item.CoProv, &item.TipoCli,
+			&item.CoProv,
 			&item.Hasta1, &item.Hasta2, &item.Hasta3, &item.Hasta4, &item.Hasta5,
 			&item.Porc1, &item.Porc2, &item.Porc3, &item.Porc4, &item.Porc5,
 		); err != nil {
@@ -347,7 +347,6 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 			continue
 		}
 		item.CoProv = strings.TrimSpace(item.CoProv)
-		item.TipoCli = strings.TrimSpace(item.TipoCli)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -356,9 +355,7 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 func (r *SourceRepository) FetchDescProv(ctx context.Context) ([]DescProv, error) {
 	var items []DescProv
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT co_prov, co_cli,
-		       hasta1, hasta2, hasta3, hasta4, hasta5,
-		       porc1, porc2, porc3, porc4, porc5
+		SELECT co_prov, co_cli, porc1
 		FROM desc_prov
 	`)
 	if err != nil {
@@ -368,9 +365,7 @@ func (r *SourceRepository) FetchDescProv(ctx context.Context) ([]DescProv, error
 	for rows.Next() {
 		var item DescProv
 		if err := rows.Scan(
-			&item.CoProv, &item.CoCli,
-			&item.Hasta1, &item.Hasta2, &item.Hasta3, &item.Hasta4, &item.Hasta5,
-			&item.Porc1, &item.Porc2, &item.Porc3, &item.Porc4, &item.Porc5,
+			&item.CoProv, &item.CoCli, &item.Porc1,
 		); err != nil {
 			log.Printf("Error scan desc_prov: %v", err)
 			continue
@@ -604,7 +599,7 @@ func (r *DestRepository) TruncateAndInsertDescuentos(ctx context.Context, items 
 }
 
 func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error) {
-	const cols = 12
+	const cols = 11
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -627,7 +622,7 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 		placeholders := buildPlaceholders(len(chunk), cols)
 		query := fmt.Sprintf(`
 			INSERT INTO desc_ptc
-			(co_prov, tipo_cli, hasta1, hasta2, hasta3, hasta4, hasta5,
+			(co_prov, hasta1, hasta2, hasta3, hasta4, hasta5,
 			 porc1, porc2, porc3, porc4, porc5)
 			VALUES %s
 		`, placeholders)
@@ -635,7 +630,7 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
 			args = append(args,
-				item.CoProv, item.TipoCli,
+				item.CoProv,
 				item.Hasta1, item.Hasta2, item.Hasta3, item.Hasta4, item.Hasta5,
 				item.Porc1, item.Porc2, item.Porc3, item.Porc4, item.Porc5,
 			)
@@ -654,7 +649,7 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 }
 
 func (r *DestRepository) TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error) {
-	const cols = 12
+	const cols = 3
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -677,17 +672,14 @@ func (r *DestRepository) TruncateAndInsertDescProv(ctx context.Context, items []
 		placeholders := buildPlaceholders(len(chunk), cols)
 		query := fmt.Sprintf(`
 			INSERT INTO desc_prov
-			(co_prov, co_cli, hasta1, hasta2, hasta3, hasta4, hasta5,
-			 porc1, porc2, porc3, porc4, porc5)
+			(co_prov, co_cli, porc1)
 			VALUES %s
 		`, placeholders)
 
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
 			args = append(args,
-				item.CoProv, item.CoCli,
-				item.Hasta1, item.Hasta2, item.Hasta3, item.Hasta4, item.Hasta5,
-				item.Porc1, item.Porc2, item.Porc3, item.Porc4, item.Porc5,
+				item.CoProv, item.CoCli, item.Porc1,
 			)
 		}
 

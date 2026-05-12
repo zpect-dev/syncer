@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS desc_ptc (
     co_prov  VARCHAR(30)    NOT NULL,
-    tipo_cli VARCHAR(50)    NOT NULL,
     hasta1   DECIMAL(18,5)  DEFAULT 0,
     hasta2   DECIMAL(18,5)  DEFAULT 0,
     hasta3   DECIMAL(18,5)  DEFAULT 0,
@@ -14,8 +13,7 @@ CREATE TABLE IF NOT EXISTS desc_ptc (
 
     PRIMARY KEY (co_prov, tipo_cli),
 
-    CONSTRAINT fk_desc_ptc_cat_art FOREIGN KEY (co_prov) REFERENCES cat_art(co_cat) ON DELETE RESTRICT,
-    CONSTRAINT fk_desc_ptc_tipo_cli FOREIGN KEY (tipo_cli) REFERENCES tipo_cli(tip_cli) ON DELETE RESTRICT
+    CONSTRAINT fk_desc_ptc_cat_art FOREIGN KEY (co_prov) REFERENCES cat_art(co_cat) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS desc_prov (
