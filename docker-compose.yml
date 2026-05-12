@@ -6,5 +6,7 @@ services:
         restart: unless-stopped
         env_file:
             - .env
-        environment:
-            - POSTGRES_URL=postgres://postgres:secret@${TAILSCALE_IP}:5432/profit_ecommerce?sslmode=disable
+        # Monta el CA cert de DigitalOcean si usas sslmode=verify-full.
+        # Coloca el archivo en ./certs/ca-certificate.crt (descárgalo desde el panel de DO).
+        volumes:
+            - ./certs:/app/certs:ro
