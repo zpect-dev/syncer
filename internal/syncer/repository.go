@@ -269,7 +269,7 @@ func (r *SourceRepository) FetchTiposCli(ctx context.Context) ([]TipoCli, error)
 
 func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error) {
 	query := `
-		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, co_pro
+		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, co_prov
 		FROM clientes
 		ORDER BY co_cli
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
