@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS desc_ptc (
     porc4    DECIMAL(18,5)  DEFAULT 0,
     porc5    DECIMAL(18,5)  DEFAULT 0,
 
-    CONSTRAINT fk_desc_ptc_cat_art FOREIGN KEY (co_prov) REFERENCES cat_art(co_cat) ON DELETE RESTRICT
+    CONSTRAINT fk_desc_ptc_prov FOREIGN KEY (co_prov) REFERENCES prov(co_prov) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS desc_prov (
@@ -21,6 +21,6 @@ CREATE TABLE IF NOT EXISTS desc_prov (
 
     PRIMARY KEY (co_prov, co_cli),
 
-    CONSTRAINT fk_desc_prov_cat_art FOREIGN KEY (co_prov) REFERENCES cat_art(co_cat) ON DELETE RESTRICT,
+    CONSTRAINT fk_desc_prov_prov FOREIGN KEY (co_prov) REFERENCES prov(co_prov) ON DELETE RESTRICT,
     CONSTRAINT fk_desc_prov_clientes FOREIGN KEY (co_cli) REFERENCES clientes(co_cli) ON DELETE RESTRICT
 );
