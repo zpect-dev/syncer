@@ -56,6 +56,7 @@ type Article struct {
 	CoSubl   string  `db:"co_subl"`
 	Campo4   string  `db:"campo4"`
 	CatDes   string  `db:"cat_des"`
+	CoProv   string  `db:"co_prov"`
 	// ImageURL string
 }
 
@@ -115,7 +116,6 @@ type Cliente struct {
 	Telefonos string `db:"telefonos" json:"telefonos"`
 	Fax      string  `db:"fax" json:"fax"`
 	DescGlob float64 `db:"desc_glob" json:"desc_glob"`
-	CoPro    string  `db:"co_prov" json:"co_prov"`
 }
 
 // Prov representa un proveedor (tabla prov en Profit).

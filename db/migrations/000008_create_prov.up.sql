@@ -5,13 +5,13 @@ CREATE TABLE IF NOT EXISTS prov (
     prov_des VARCHAR(255)  NOT NULL
 );
 
-ALTER TABLE clientes ADD COLUMN IF NOT EXISTS co_prov VARCHAR(30);
+ALTER TABLE art ADD COLUMN IF NOT EXISTS co_prov VARCHAR(30);
 
-ALTER TABLE clientes
-    DROP CONSTRAINT IF EXISTS fk_clientes_prov;
+ALTER TABLE art
+    DROP CONSTRAINT IF EXISTS fk_art_prov;
 
-ALTER TABLE clientes
-    ADD CONSTRAINT fk_clientes_prov
+ALTER TABLE art
+    ADD CONSTRAINT fk_art_prov
     FOREIGN KEY (co_prov) REFERENCES prov(co_prov) ON DELETE SET NULL;
 
 COMMIT;

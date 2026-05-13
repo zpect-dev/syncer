@@ -157,7 +157,7 @@ func (r *SourceRepository) FetchDescuentos(ctx context.Context) ([]Descuento, er
 func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset int) ([]Article, error) {
 	query := `
 		SELECT
-			a.co_art, 
+			a.co_art,
 			a.art_des,
 			a.prec_vta1,
 			a.prec_vta2,
@@ -169,7 +169,8 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 			COALESCE(a.co_cat, ''),
 			COALESCE(a.co_subl, ''),
 			COALESCE(a.campo4, ''),
-			COALESCE(c.cat_des, '')
+			COALESCE(c.cat_des, ''),
+			COALESCE(a.co_prov, '')
 		FROM art a
 		LEFT JOIN cat_art c ON a.co_cat = c.co_cat
 		WHERE a.anulado = 0 AND a.art_des NOT LIKE '%NO USAR%'
@@ -189,6 +190,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 			&item.CoArt, &item.ArtDes,
 			&item.PrecVta1, &item.PrecVta2, &item.PrecVta3, &item.PrecVta4, &item.PrecVta5,
 			&item.TipoImp, &item.CoLin, &item.CoCat, &item.CoSubl, &item.Campo4, &item.CatDes,
+			&item.CoProv,
 		); err != nil {
 			log.Printf("Error scan article: %v", err)
 			continue
@@ -201,6 +203,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 		item.CoSubl = strings.TrimSpace(item.CoSubl)
 		item.Campo4 = strings.TrimSpace(item.Campo4)
 		item.CatDes = strings.TrimSpace(item.CatDes)
+		item.CoProv = strings.TrimSpace(item.CoProv)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -269,7 +272,7 @@ func (r *SourceRepository) FetchTiposCli(ctx context.Context) ([]TipoCli, error)
 
 func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error) {
 	query := `
-		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, co_prov
+		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob
 		FROM clientes
 		ORDER BY co_cli
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -283,9 +286,9 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 	var items []Cliente
 	for rows.Next() {
 		var item Cliente
-		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr, coProStr sql.NullString
+		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr sql.NullString
 
-		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr, &coProStr); err != nil {
+		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr); err != nil {
 			log.Printf("Error scan cliente: %v", err)
 			continue
 		}
@@ -317,9 +320,6 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 			if val, err := strconv.ParseFloat(strings.TrimSpace(descGlobStr.String), 64); err == nil {
 				item.DescGlob = val
 			}
-		}
-		if coProStr.Valid {
-			item.CoPro = strings.TrimSpace(coProStr.String)
 		}
 
 		items = append(items, item)
@@ -720,7 +720,7 @@ func (r *DestRepository) TruncateAndInsertDescProv(ctx context.Context, items []
 }
 
 func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (int, error) {
-	const cols = 13
+	const cols = 14
 	count := 0
 
 	toNull := func(s string) sql.NullString {
@@ -744,12 +744,13 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 				item.PrecVta1, item.PrecVta2, item.PrecVta3, item.PrecVta4, item.PrecVta5,
 				item.TipoImp,
 				toNull(item.CoLin), toNull(item.CoCat), toNull(item.CoSubl), toNull(item.Campo4), item.CatDes,
+				toNull(item.CoProv),
 				// item.ImageURL,
 			)
 		}
 
 		queryTpl := `
-			INSERT INTO art (co_art, art_des, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4, cat_des)
+			INSERT INTO art (co_art, art_des, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4, cat_des, co_prov)
 			VALUES %s
 			ON CONFLICT (co_art) DO UPDATE SET
 				art_des = EXCLUDED.art_des,
@@ -764,6 +765,7 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 				co_subl = EXCLUDED.co_subl,
 				campo4 = EXCLUDED.campo4,
 				cat_des = EXCLUDED.cat_des,
+				co_prov = EXCLUDED.co_prov,
 				last_sync = NOW()
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
@@ -887,16 +889,8 @@ func (r *DestRepository) UpsertTiposCli(ctx context.Context, items []TipoCli) (i
 }
 
 func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (int, error) {
-	const cols = 12
+	const cols = 11
 	count := 0
-
-	toNull := func(s string) sql.NullString {
-		if s == "" {
-			return sql.NullString{}
-		}
-		return sql.NullString{String: s, Valid: true}
-	}
-
 	for i := 0; i < len(items); i += batchSize {
 		end := i + batchSize
 		if end > len(items) {
@@ -906,11 +900,11 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
-			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob, toNull(item.CoPro))
+			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob)
 		}
 
 		queryTpl := `
-			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, co_prov) VALUES %s
+			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob) VALUES %s
 			ON CONFLICT (co_cli) DO UPDATE SET
 				tipo = EXCLUDED.tipo,
 				cli_des = EXCLUDED.cli_des,
@@ -921,8 +915,7 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 				direc1 = EXCLUDED.direc1,
 				telefonos = EXCLUDED.telefonos,
 				fax = EXCLUDED.fax,
-				desc_glob = EXCLUDED.desc_glob,
-				co_prov = EXCLUDED.co_prov
+				desc_glob = EXCLUDED.desc_glob
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
 	}
