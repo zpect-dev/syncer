@@ -1,7 +1,7 @@
 BEGIN;
 
 ALTER TABLE clientes DROP CONSTRAINT IF EXISTS fk_clientes_prov;
-ALTER TABLE clientes DROP COLUMN IF EXISTS co_pro;
+ALTER TABLE clientes DROP COLUMN IF EXISTS co_prov;
 
 DROP TABLE IF EXISTS prov;
 

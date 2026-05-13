@@ -910,7 +910,7 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 		}
 
 		queryTpl := `
-			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, co_pro) VALUES %s
+			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, co_prov) VALUES %s
 			ON CONFLICT (co_cli) DO UPDATE SET
 				tipo = EXCLUDED.tipo,
 				cli_des = EXCLUDED.cli_des,
@@ -922,7 +922,7 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 				telefonos = EXCLUDED.telefonos,
 				fax = EXCLUDED.fax,
 				desc_glob = EXCLUDED.desc_glob,
-				co_pro = EXCLUDED.co_pro
+				co_prov = EXCLUDED.co_prov
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
 	}

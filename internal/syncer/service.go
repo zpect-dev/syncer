@@ -82,7 +82,7 @@ func (s *Service) RunSlowSync(ctx context.Context) {
 		fmt.Printf("Sub-almacenes sincronizados: %d\n", count)
 	}
 
-	// 6. Proveedores (catálogo maestro, referenciado por clientes.co_pro)
+	// 6. Proveedores (catálogo maestro, referenciado por clientes.co_prov)
 	if err := ctx.Err(); err != nil {
 		log.Printf("Slow Sync cancelado antes de prov: %v", err)
 		return
