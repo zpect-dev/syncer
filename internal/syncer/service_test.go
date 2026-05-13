@@ -28,6 +28,9 @@ func (m *mockSourceRepo) FetchStAlmacPage(ctx context.Context, limit, offset int
 func (m *mockSourceRepo) FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error) {
 	return nil, nil
 }
+func (m *mockSourceRepo) FetchDescPtc(ctx context.Context) ([]DescPtc, error)   { return nil, nil }
+func (m *mockSourceRepo) FetchDescProv(ctx context.Context) ([]DescProv, error) { return nil, nil }
+func (m *mockSourceRepo) FetchProv(ctx context.Context) ([]Prov, error)         { return nil, nil }
 
 func (m *mockSourceRepo) FetchArticlesPage(ctx context.Context, limit, offset int) ([]Article, error) {
 	args := m.Called(ctx, limit, offset)
@@ -53,6 +56,13 @@ func (m *mockDestRepo) UpsertTiposCli(ctx context.Context, items []TipoCli) (int
 func (m *mockDestRepo) UpsertStAlmac(ctx context.Context, items []StAlmac) (int, error) { return 0, nil }
 func (m *mockDestRepo) UpsertClientes(ctx context.Context, items []Cliente) (int, error) { return 0, nil }
 func (m *mockDestRepo) RecalculateInventoryJSON(ctx context.Context) error              { return nil }
+func (m *mockDestRepo) TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error) {
+	return 0, nil
+}
+func (m *mockDestRepo) TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error) {
+	return 0, nil
+}
+func (m *mockDestRepo) UpsertProv(ctx context.Context, items []Prov) (int, error) { return 0, nil }
 
 func (m *mockDestRepo) UpsertArticles(ctx context.Context, items []Article) (int, error) {
 	args := m.Called(ctx, items)

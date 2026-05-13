@@ -82,6 +82,18 @@ func (s *Service) RunSlowSync(ctx context.Context) {
 		fmt.Printf("Sub-almacenes sincronizados: %d\n", count)
 	}
 
+	// 6. Proveedores (catálogo maestro, referenciado por clientes.co_pro)
+	if err := ctx.Err(); err != nil {
+		log.Printf("Slow Sync cancelado antes de prov: %v", err)
+		return
+	}
+	if items, err := s.source.FetchProv(ctx); err != nil {
+		log.Printf("Error fetching prov: %v", err)
+	} else {
+		count, _ := s.dest.UpsertProv(ctx, items)
+		fmt.Printf("Proveedores sincronizados: %d\n", count)
+	}
+
 	fmt.Println("--- Slow Sync: Completado ---")
 }
 

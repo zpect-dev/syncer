@@ -269,9 +269,9 @@ func (r *SourceRepository) FetchTiposCli(ctx context.Context) ([]TipoCli, error)
 
 func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error) {
 	query := `
-		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob 
-		FROM clientes 
-		ORDER BY co_cli 
+		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, co_pro
+		FROM clientes
+		ORDER BY co_cli
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
 	`
 	rows, err := r.db.QueryContext(ctx, query, sql.Named("offset", offset), sql.Named("limit", limit))
@@ -283,9 +283,9 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 	var items []Cliente
 	for rows.Next() {
 		var item Cliente
-		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr sql.NullString
-		
-		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr); err != nil {
+		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr, coProStr sql.NullString
+
+		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr, &coProStr); err != nil {
 			log.Printf("Error scan cliente: %v", err)
 			continue
 		}
@@ -318,7 +318,31 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 				item.DescGlob = val
 			}
 		}
+		if coProStr.Valid {
+			item.CoPro = strings.TrimSpace(coProStr.String)
+		}
 
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// FetchProv lee la tabla maestra de proveedores desde Profit.
+func (r *SourceRepository) FetchProv(ctx context.Context) ([]Prov, error) {
+	var items []Prov
+	rows, err := r.db.QueryContext(ctx, "SELECT co_prov, prov_des FROM prov")
+	if err != nil {
+		return nil, fmt.Errorf("error fetching prov: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var item Prov
+		if err := rows.Scan(&item.CoProv, &item.ProvDes); err != nil {
+			log.Printf("Error scan prov: %v", err)
+			continue
+		}
+		item.CoProv = strings.TrimSpace(item.CoProv)
+		item.ProvDes = strings.TrimSpace(item.ProvDes)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -863,7 +887,51 @@ func (r *DestRepository) UpsertTiposCli(ctx context.Context, items []TipoCli) (i
 }
 
 func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (int, error) {
-	const cols = 11
+	const cols = 12
+	count := 0
+
+	toNull := func(s string) sql.NullString {
+		if s == "" {
+			return sql.NullString{}
+		}
+		return sql.NullString{String: s, Valid: true}
+	}
+
+	for i := 0; i < len(items); i += batchSize {
+		end := i + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		chunk := items[i:end]
+
+		args := make([]interface{}, 0, len(chunk)*cols)
+		for _, item := range chunk {
+			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob, toNull(item.CoPro))
+		}
+
+		queryTpl := `
+			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, co_pro) VALUES %s
+			ON CONFLICT (co_cli) DO UPDATE SET
+				tipo = EXCLUDED.tipo,
+				cli_des = EXCLUDED.cli_des,
+				rif = EXCLUDED.rif,
+				inactivo = EXCLUDED.inactivo,
+				login = EXCLUDED.login,
+				mont_cre = EXCLUDED.mont_cre,
+				direc1 = EXCLUDED.direc1,
+				telefonos = EXCLUDED.telefonos,
+				fax = EXCLUDED.fax,
+				desc_glob = EXCLUDED.desc_glob,
+				co_pro = EXCLUDED.co_pro
+		`
+		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
+	}
+	return count, nil
+}
+
+// UpsertProv inserta o actualiza el catálogo maestro de proveedores en PostgreSQL.
+func (r *DestRepository) UpsertProv(ctx context.Context, items []Prov) (int, error) {
+	const cols = 2
 	count := 0
 	for i := 0; i < len(items); i += batchSize {
 		end := i + batchSize
@@ -874,22 +942,12 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
-			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob)
+			args = append(args, item.CoProv, item.ProvDes)
 		}
 
 		queryTpl := `
-			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob) VALUES %s
-			ON CONFLICT (co_cli) DO UPDATE SET 
-				tipo = EXCLUDED.tipo, 
-				cli_des = EXCLUDED.cli_des, 
-				rif = EXCLUDED.rif, 
-				inactivo = EXCLUDED.inactivo, 
-				login = EXCLUDED.login,
-				mont_cre = EXCLUDED.mont_cre,
-				direc1 = EXCLUDED.direc1,
-				telefonos = EXCLUDED.telefonos,
-				fax = EXCLUDED.fax,
-				desc_glob = EXCLUDED.desc_glob
+			INSERT INTO prov (co_prov, prov_des) VALUES %s
+			ON CONFLICT (co_prov) DO UPDATE SET prov_des = EXCLUDED.prov_des
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
 	}

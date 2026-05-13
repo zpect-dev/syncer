@@ -20,6 +20,7 @@ type SourceRepo interface {
 	FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error)
 	FetchDescPtc(ctx context.Context) ([]DescPtc, error)
 	FetchDescProv(ctx context.Context) ([]DescProv, error)
+	FetchProv(ctx context.Context) ([]Prov, error)
 }
 
 // DestRepo define el contrato de escritura contra la BD destino (PostgreSQL).
@@ -38,4 +39,5 @@ type DestRepo interface {
 	RecalculateInventoryJSON(ctx context.Context) error
 	TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error)
 	TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error)
+	UpsertProv(ctx context.Context, items []Prov) (int, error)
 }

@@ -115,4 +115,11 @@ type Cliente struct {
 	Telefonos string `db:"telefonos" json:"telefonos"`
 	Fax      string  `db:"fax" json:"fax"`
 	DescGlob float64 `db:"desc_glob" json:"desc_glob"`
+	CoPro    string  `db:"co_pro" json:"co_pro"`
+}
+
+// Prov representa un proveedor (tabla prov en Profit).
+type Prov struct {
+	CoProv  string `db:"co_prov" json:"co_prov"`
+	ProvDes string `db:"prov_des" json:"prov_des"`
 }
