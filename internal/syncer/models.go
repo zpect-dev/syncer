@@ -55,8 +55,8 @@ type Article struct {
 	CoCat    string  `db:"co_cat"`
 	CoSubl   string  `db:"co_subl"`
 	Campo4   string  `db:"campo4"`
-	CatDes   string  `db:"cat_des"`
 	CoProv   string  `db:"co_prov"`
+	ProvDes  string  `db:"prov_des"`
 	// ImageURL string
 }
 
