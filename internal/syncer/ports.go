@@ -39,5 +39,5 @@ type DestRepo interface {
 	RecalculateInventoryJSON(ctx context.Context) error
 	TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error)
 	TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error)
-	UpsertProv(ctx context.Context, items []Prov) (int, error)
+	TruncateAndInsertProv(ctx context.Context, items []Prov) (int, error)
 }

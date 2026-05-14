@@ -970,9 +970,23 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 	return count, nil
 }
 
-// UpsertProv inserta o actualiza el catálogo maestro de proveedores en PostgreSQL.
-func (r *DestRepository) UpsertProv(ctx context.Context, items []Prov) (int, error) {
+// TruncateAndInsertProv reemplaza COMPLETAMENTE el catálogo de proveedores en cada sync.
+// Usa DELETE (no TRUNCATE) porque hay FK desde art.co_prov con ON DELETE SET NULL:
+// los art.co_prov huérfanos quedan en NULL y se restauran en el siguiente FastSync.
+// Esto garantiza que registros viejos sucios (CRIST MEDICALS, DISPONIBLE...) se purguen.
+func (r *DestRepository) TruncateAndInsertProv(ctx context.Context, items []Prov) (int, error) {
 	const cols = 2
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("error iniciando transacción prov: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err = tx.ExecContext(ctx, "DELETE FROM prov"); err != nil {
+		return 0, fmt.Errorf("error borrando prov: %w", err)
+	}
+
 	count := 0
 	for i := 0; i < len(items); i += batchSize {
 		end := i + batchSize
@@ -981,16 +995,24 @@ func (r *DestRepository) UpsertProv(ctx context.Context, items []Prov) (int, err
 		}
 		chunk := items[i:end]
 
+		placeholders := buildPlaceholders(len(chunk), cols)
+		query := fmt.Sprintf(`
+			INSERT INTO prov (co_prov, prov_des) VALUES %s
+		`, placeholders)
+
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
 			args = append(args, item.CoProv, item.ProvDes)
 		}
 
-		queryTpl := `
-			INSERT INTO prov (co_prov, prov_des) VALUES %s
-			ON CONFLICT (co_prov) DO UPDATE SET prov_des = EXCLUDED.prov_des
-		`
-		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
+		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+			return count, fmt.Errorf("error batch prov (filas %d-%d): %w", i, end-1, err)
+		}
+		count += len(chunk)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return count, fmt.Errorf("error commit prov: %w", err)
 	}
 	return count, nil
 }

@@ -90,7 +90,7 @@ func (s *Service) RunSlowSync(ctx context.Context) {
 	if items, err := s.source.FetchProv(ctx); err != nil {
 		log.Printf("Error fetching prov: %v", err)
 	} else {
-		count, _ := s.dest.UpsertProv(ctx, items)
+		count, _ := s.dest.TruncateAndInsertProv(ctx, items)
 		fmt.Printf("Proveedores sincronizados: %d\n", count)
 	}
 
