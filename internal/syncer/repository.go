@@ -155,6 +155,9 @@ func (r *SourceRepository) FetchDescuentos(ctx context.Context) ([]Descuento, er
 }
 
 func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset int) ([]Article, error) {
+	// El LEFT JOIN solo machea proveedores VÁLIDOS (no admin, no CRIST MEDICALS).
+	// Si un artículo apunta a un proveedor excluido, p.co_prov será NULL y devolvemos
+	// '' para co_prov en el espejo, garantizando que no se viole la FK.
 	query := `
 		SELECT
 			a.co_art,
@@ -169,15 +172,25 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 			COALESCE(a.co_cat, ''),
 			COALESCE(a.co_subl, ''),
 			COALESCE(a.campo4, ''),
-			COALESCE(a.co_prov, ''),
+			COALESCE(p.co_prov, ''),
 			COALESCE(p.prov_des, '')
 		FROM art a
-		LEFT JOIN prov p ON a.co_prov = p.co_prov
+		LEFT JOIN prov p
+		  ON a.co_prov = p.co_prov
+		 AND p.prov_des NOT IN (@excl1, @excl2, @excl3)
+		 AND p.prov_des NOT LIKE @exclPrefix
 		WHERE a.anulado = 0 AND a.art_des NOT LIKE '%NO USAR%'
 		ORDER BY a.co_art
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
 	`
-	rows, err := r.db.QueryContext(ctx, query, sql.Named("offset", offset), sql.Named("limit", limit))
+	rows, err := r.db.QueryContext(ctx, query,
+		sql.Named("offset", offset),
+		sql.Named("limit", limit),
+		sql.Named("excl1", excludedProvDescs[0]),
+		sql.Named("excl2", excludedProvDescs[1]),
+		sql.Named("excl3", excludedProvDescs[2]),
+		sql.Named("exclPrefix", excludedProvPrefix),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching articles page (offset=%d): %w", offset, err)
 	}
@@ -203,7 +216,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 		item.CoSubl = strings.TrimSpace(item.CoSubl)
 		item.Campo4 = strings.TrimSpace(item.Campo4)
 		item.CoProv = strings.TrimSpace(item.CoProv)
-		item.ProvDes = strings.TrimSpace(item.ProvDes)
+		item.ProvDes = cleanProvDes(item.ProvDes)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -327,14 +340,45 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 	return items, rows.Err()
 }
 
-// FetchProv lee la tabla maestra de proveedores desde Profit.
+// excludedProvDescs son nombres administrativos que NO representan proveedores reales.
+// Se filtran tanto en FetchProv (no llegan al espejo) como en FetchArticlesPage
+// (los artículos que los referencien sincronizan con co_prov vacío).
+var excludedProvDescs = []string{
+	"DISPONIBLE",
+	"ROTACION LENTA",
+	"DEVOLUCIONES CLIENTE / RETIRO DE ACTIVOS",
+}
+
+// excludedProvPrefix descarta variantes duplicadas con este prefijo
+// (ej. "CRIST MEDICALS - BIOFARCO C.A" cuando ya existe "LABORATORIOS BIOFARCO C.A").
+const excludedProvPrefix = "CRIST MEDICALS - %"
+
+// FetchProv lee la tabla maestra de proveedores desde Profit aplicando filtros de limpieza:
+//   - Solo trae proveedores referenciados por al menos un artículo válido (INNER JOIN art).
+//   - Excluye registros administrativos (DISPONIBLE, ROTACION LENTA, DEVOLUCIONES...).
+//   - Excluye variantes con prefijo "CRIST MEDICALS - ".
 func (r *SourceRepository) FetchProv(ctx context.Context) ([]Prov, error) {
-	var items []Prov
-	rows, err := r.db.QueryContext(ctx, "SELECT co_prov, prov_des FROM prov")
+	query := `
+		SELECT DISTINCT p.co_prov, p.prov_des
+		FROM prov p
+		INNER JOIN art a ON a.co_prov = p.co_prov
+		WHERE a.anulado = 0
+		  AND a.art_des NOT LIKE '%NO USAR%'
+		  AND p.prov_des NOT IN (@excl1, @excl2, @excl3)
+		  AND p.prov_des NOT LIKE @exclPrefix
+	`
+	rows, err := r.db.QueryContext(ctx, query,
+		sql.Named("excl1", excludedProvDescs[0]),
+		sql.Named("excl2", excludedProvDescs[1]),
+		sql.Named("excl3", excludedProvDescs[2]),
+		sql.Named("exclPrefix", excludedProvPrefix),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching prov: %w", err)
 	}
 	defer rows.Close()
+
+	var items []Prov
 	for rows.Next() {
 		var item Prov
 		if err := rows.Scan(&item.CoProv, &item.ProvDes); err != nil {
@@ -342,7 +386,11 @@ func (r *SourceRepository) FetchProv(ctx context.Context) ([]Prov, error) {
 			continue
 		}
 		item.CoProv = strings.TrimSpace(item.CoProv)
-		item.ProvDes = strings.TrimSpace(item.ProvDes)
+		item.ProvDes = cleanProvDes(item.ProvDes)
+		// Si después de la limpieza queda vacío, omitimos el registro (no aporta).
+		if item.ProvDes == "" {
+			continue
+		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
