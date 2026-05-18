@@ -62,9 +62,7 @@ func (m *mockDestRepo) TruncateAndInsertDescPtc(ctx context.Context, items []Des
 func (m *mockDestRepo) TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error) {
 	return 0, nil
 }
-func (m *mockDestRepo) TruncateAndInsertProv(ctx context.Context, items []Prov) (int, error) {
-	return 0, nil
-}
+func (m *mockDestRepo) UpsertProv(ctx context.Context, items []Prov) (int, error) { return 0, nil }
 
 func (m *mockDestRepo) UpsertArticles(ctx context.Context, items []Article) (int, error) {
 	args := m.Called(ctx, items)

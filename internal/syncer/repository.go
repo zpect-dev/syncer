@@ -155,9 +155,6 @@ func (r *SourceRepository) FetchDescuentos(ctx context.Context) ([]Descuento, er
 }
 
 func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset int) ([]Article, error) {
-	// El LEFT JOIN solo machea proveedores VÁLIDOS (no admin, no CRIST MEDICALS).
-	// Si un artículo apunta a un proveedor excluido, p.co_prov será NULL y devolvemos
-	// '' para co_prov en el espejo, garantizando que no se viole la FK.
 	query := `
 		SELECT
 			a.co_art,
@@ -172,25 +169,15 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 			COALESCE(a.co_cat, ''),
 			COALESCE(a.co_subl, ''),
 			COALESCE(a.campo4, ''),
-			COALESCE(p.co_prov, ''),
+			COALESCE(a.co_prov, ''),
 			COALESCE(p.prov_des, '')
 		FROM art a
-		LEFT JOIN prov p
-		  ON a.co_prov = p.co_prov
-		 AND p.prov_des NOT IN (@excl1, @excl2, @excl3)
-		 AND p.prov_des NOT LIKE @exclPrefix
+		LEFT JOIN prov p ON a.co_prov = p.co_prov
 		WHERE a.anulado = 0 AND a.art_des NOT LIKE '%NO USAR%'
 		ORDER BY a.co_art
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
 	`
-	rows, err := r.db.QueryContext(ctx, query,
-		sql.Named("offset", offset),
-		sql.Named("limit", limit),
-		sql.Named("excl1", excludedProvDescs[0]),
-		sql.Named("excl2", excludedProvDescs[1]),
-		sql.Named("excl3", excludedProvDescs[2]),
-		sql.Named("exclPrefix", excludedProvPrefix),
-	)
+	rows, err := r.db.QueryContext(ctx, query, sql.Named("offset", offset), sql.Named("limit", limit))
 	if err != nil {
 		return nil, fmt.Errorf("error fetching articles page (offset=%d): %w", offset, err)
 	}
@@ -216,7 +203,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 		item.CoSubl = strings.TrimSpace(item.CoSubl)
 		item.Campo4 = strings.TrimSpace(item.Campo4)
 		item.CoProv = strings.TrimSpace(item.CoProv)
-		item.ProvDes = cleanProvDes(item.ProvDes)
+		item.ProvDes = strings.TrimSpace(item.ProvDes)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -340,45 +327,14 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 	return items, rows.Err()
 }
 
-// excludedProvDescs son nombres administrativos que NO representan proveedores reales.
-// Se filtran tanto en FetchProv (no llegan al espejo) como en FetchArticlesPage
-// (los artículos que los referencien sincronizan con co_prov vacío).
-var excludedProvDescs = []string{
-	"DISPONIBLE",
-	"ROTACION LENTA",
-	"DEVOLUCIONES CLIENTE / RETIRO DE ACTIVOS",
-}
-
-// excludedProvPrefix descarta variantes duplicadas con este prefijo
-// (ej. "CRIST MEDICALS - BIOFARCO C.A" cuando ya existe "LABORATORIOS BIOFARCO C.A").
-const excludedProvPrefix = "CRIST MEDICALS - %"
-
-// FetchProv lee la tabla maestra de proveedores desde Profit aplicando filtros de limpieza:
-//   - Solo trae proveedores referenciados por al menos un artículo válido (INNER JOIN art).
-//   - Excluye registros administrativos (DISPONIBLE, ROTACION LENTA, DEVOLUCIONES...).
-//   - Excluye variantes con prefijo "CRIST MEDICALS - ".
+// FetchProv lee la tabla maestra de proveedores desde Profit.
 func (r *SourceRepository) FetchProv(ctx context.Context) ([]Prov, error) {
-	query := `
-		SELECT DISTINCT p.co_prov, p.prov_des
-		FROM prov p
-		INNER JOIN art a ON a.co_prov = p.co_prov
-		WHERE a.anulado = 0
-		  AND a.art_des NOT LIKE '%NO USAR%'
-		  AND p.prov_des NOT IN (@excl1, @excl2, @excl3)
-		  AND p.prov_des NOT LIKE @exclPrefix
-	`
-	rows, err := r.db.QueryContext(ctx, query,
-		sql.Named("excl1", excludedProvDescs[0]),
-		sql.Named("excl2", excludedProvDescs[1]),
-		sql.Named("excl3", excludedProvDescs[2]),
-		sql.Named("exclPrefix", excludedProvPrefix),
-	)
+	var items []Prov
+	rows, err := r.db.QueryContext(ctx, "SELECT co_prov, prov_des FROM prov")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching prov: %w", err)
 	}
 	defer rows.Close()
-
-	var items []Prov
 	for rows.Next() {
 		var item Prov
 		if err := rows.Scan(&item.CoProv, &item.ProvDes); err != nil {
@@ -386,11 +342,7 @@ func (r *SourceRepository) FetchProv(ctx context.Context) ([]Prov, error) {
 			continue
 		}
 		item.CoProv = strings.TrimSpace(item.CoProv)
-		item.ProvDes = cleanProvDes(item.ProvDes)
-		// Si después de la limpieza queda vacío, omitimos el registro (no aporta).
-		if item.ProvDes == "" {
-			continue
-		}
+		item.ProvDes = strings.TrimSpace(item.ProvDes)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -970,23 +922,9 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 	return count, nil
 }
 
-// TruncateAndInsertProv reemplaza COMPLETAMENTE el catálogo de proveedores en cada sync.
-// Usa DELETE (no TRUNCATE) porque hay FK desde art.co_prov con ON DELETE SET NULL:
-// los art.co_prov huérfanos quedan en NULL y se restauran en el siguiente FastSync.
-// Esto garantiza que registros viejos sucios (CRIST MEDICALS, DISPONIBLE...) se purguen.
-func (r *DestRepository) TruncateAndInsertProv(ctx context.Context, items []Prov) (int, error) {
+// UpsertProv inserta o actualiza el catálogo maestro de proveedores en PostgreSQL.
+func (r *DestRepository) UpsertProv(ctx context.Context, items []Prov) (int, error) {
 	const cols = 2
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, fmt.Errorf("error iniciando transacción prov: %w", err)
-	}
-	defer tx.Rollback()
-
-	if _, err = tx.ExecContext(ctx, "DELETE FROM prov"); err != nil {
-		return 0, fmt.Errorf("error borrando prov: %w", err)
-	}
-
 	count := 0
 	for i := 0; i < len(items); i += batchSize {
 		end := i + batchSize
@@ -995,24 +933,16 @@ func (r *DestRepository) TruncateAndInsertProv(ctx context.Context, items []Prov
 		}
 		chunk := items[i:end]
 
-		placeholders := buildPlaceholders(len(chunk), cols)
-		query := fmt.Sprintf(`
-			INSERT INTO prov (co_prov, prov_des) VALUES %s
-		`, placeholders)
-
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
 			args = append(args, item.CoProv, item.ProvDes)
 		}
 
-		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
-			return count, fmt.Errorf("error batch prov (filas %d-%d): %w", i, end-1, err)
-		}
-		count += len(chunk)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return count, fmt.Errorf("error commit prov: %w", err)
+		queryTpl := `
+			INSERT INTO prov (co_prov, prov_des) VALUES %s
+			ON CONFLICT (co_prov) DO UPDATE SET prov_des = EXCLUDED.prov_des
+		`
+		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
 	}
 	return count, nil
 }
