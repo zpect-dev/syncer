@@ -8,13 +8,15 @@ import (
 
 // Service orquesta la sincronización entre Profit (origen) y PostgreSQL (destino).
 type Service struct {
-	source SourceRepo
-	dest   DestRepo
+	source      SourceRepo
+	dest        DestRepo
+	invalidator CacheInvalidator
 }
 
 // NewService crea un nuevo servicio de sincronización inyectando las interfaces de repositorio.
-func NewService(source SourceRepo, dest DestRepo) *Service {
-	return &Service{source: source, dest: dest}
+// invalidator puede ser nil (se omite la invalidación de caché).
+func NewService(source SourceRepo, dest DestRepo, invalidator CacheInvalidator) *Service {
+	return &Service{source: source, dest: dest, invalidator: invalidator}
 }
 
 
@@ -173,6 +175,22 @@ func (s *Service) RunFastSync(ctx context.Context) {
 		log.Printf("Error: %v", err)
 	} else {
 		fmt.Println("OK")
+	}
+
+	// 7. Invalidar caché de descuentos en Redis. Las 3 tablas fuente
+	// (descuen, desc_ptc, desc_prov) acaban de reescribirse, así que
+	// limpiamos todo el prefijo "discounts:*" para que la API recargue
+	// la próxima vez que las pida.
+	if s.invalidator != nil {
+		if err := ctx.Err(); err != nil {
+			log.Printf("Fast Sync cancelado antes de invalidar caché: %v", err)
+			return
+		}
+		if n, err := s.invalidator.InvalidateDiscounts(ctx); err != nil {
+			log.Printf("Invalidación de caché de descuentos: %v (eliminadas: %d)", err, n)
+		} else {
+			fmt.Printf("Caché de descuentos invalidada: %d keys\n", n)
+		}
 	}
 
 	fmt.Println("--- Fast Sync: Completado ---")

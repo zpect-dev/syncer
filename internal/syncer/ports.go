@@ -23,6 +23,17 @@ type SourceRepo interface {
 	FetchProv(ctx context.Context) ([]Prov, error)
 }
 
+// CacheInvalidator define el contrato para invalidar las cachés que la API
+// mantiene sobre datos recién reescritos por el sync. El service lo invoca al
+// final del fast sync; si la implementación es nil se omite silenciosamente
+// (útil para tests y entornos sin Redis).
+type CacheInvalidator interface {
+	// InvalidateDiscounts borra las entradas de caché derivadas de las tablas
+	// de descuentos. Devuelve la cantidad de keys eliminadas y el último
+	// error no fatal, si lo hubo.
+	InvalidateDiscounts(ctx context.Context) (int, error)
+}
+
 // DestRepo define el contrato de escritura contra la BD destino (PostgreSQL).
 // El Service depende de esta interfaz, no de la implementación concreta.
 type DestRepo interface {

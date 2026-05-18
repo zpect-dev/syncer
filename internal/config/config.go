@@ -10,6 +10,7 @@ import (
 type Config struct {
 	PostgresURL string
 	ProfitDBURL string
+	RedisURL    string
 }
 
 func Load() *Config {
@@ -22,6 +23,7 @@ func Load() *Config {
 	return &Config{
 		PostgresURL: getEnv("POSTGRES_URL", ""),
 		ProfitDBURL: getEnv("PROFIT_DB_URL", ""),
+		RedisURL:    getEnv("REDIS_URL", ""),
 	}
 }
 

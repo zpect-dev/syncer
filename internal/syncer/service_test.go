@@ -162,7 +162,7 @@ func TestService_syncArticlesPaginated(t *testing.T) {
 
 			tt.setupMock(src, dst, ctx)
 
-			s := NewService(src, dst)
+			s := NewService(src, dst, nil)
 			s.syncArticlesPaginated(ctx)
 
 			src.AssertExpectations(t)

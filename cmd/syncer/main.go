@@ -39,12 +39,26 @@ func main() {
 	}
 	defer pgDB.Close()
 
+	// Redis es opcional: si no hay REDIS_URL configurada arrancamos sin
+	// invalidación de caché (útil para entornos de desarrollo aislado).
+	var invalidator syncer.CacheInvalidator
+	if cfg.RedisURL != "" {
+		redisClient, err := database.ConnectRedis(cfg.RedisURL)
+		if err != nil {
+			log.Fatalf("Error conectando a Redis: %v", err)
+		}
+		defer redisClient.Close()
+		invalidator = syncer.NewRedisCacheInvalidator(redisClient)
+	} else {
+		log.Println("REDIS_URL no configurada — el sync correrá sin invalidar caché")
+	}
+
 	runMigrations(pgDB)
 
 	// 3. INYECCIÓN DE DEPENDENCIAS
 	sourceRepo := syncer.NewSourceRepository(profitDB)
 	destRepo := syncer.NewDestRepository(pgDB)
-	syncService := syncer.NewService(sourceRepo, destRepo)
+	syncService := syncer.NewService(sourceRepo, destRepo, invalidator)
 
 	fmt.Println("Worker Iniciado. Esperando ciclos... (Ctrl+C para shutdown limpio)")
 
