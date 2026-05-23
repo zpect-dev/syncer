@@ -373,10 +373,10 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 	var items []DescPtc
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT co_prov,
-		       hasta1, hasta2, hasta3, hasta4, hasta5,
-		       hasta6, hasta7, hasta8, hasta9, hasta10,
-		       porc1, porc2, porc3, porc4, porc5,
-		       porc6, porc7, porc8, porc9, porc10
+		       COALESCE(hasta1, 0),  COALESCE(hasta2, 0),  COALESCE(hasta3, 0),  COALESCE(hasta4, 0),  COALESCE(hasta5, 0),
+		       COALESCE(hasta6, 0),  COALESCE(hasta7, 0),  COALESCE(hasta8, 0),  COALESCE(hasta9, 0),  COALESCE(hasta10, 0),
+		       COALESCE(porc1, 0),   COALESCE(porc2, 0),   COALESCE(porc3, 0),   COALESCE(porc4, 0),   COALESCE(porc5, 0),
+		       COALESCE(porc6, 0),   COALESCE(porc7, 0),   COALESCE(porc8, 0),   COALESCE(porc9, 0),   COALESCE(porc10, 0)
 		FROM desc_ptc
 	`)
 	if err != nil {
