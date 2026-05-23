@@ -14,10 +14,12 @@ type Config struct {
 }
 
 func Load() *Config {
-	err := godotenv.Load()
-	if err != nil {
-		cwd, _ := os.Getwd()
-		log.Printf("Info: No se pudo cargar el archivo .env: %v (CWD: %s)", err, cwd)
+	// Sólo intentamos cargar .env si existe en disco (dev local).
+	// En contenedor las variables vienen inyectadas por docker-compose `env_file`.
+	if _, err := os.Stat(".env"); err == nil {
+		if err := godotenv.Load(); err != nil {
+			log.Printf("Advertencia: error cargando .env existente: %v", err)
+		}
 	}
 
 	return &Config{

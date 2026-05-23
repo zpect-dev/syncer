@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS colores (
+    co_col  TEXT PRIMARY KEY,
+    des_col TEXT NOT NULL DEFAULT ''
+);
+
+ALTER TABLE art ADD COLUMN IF NOT EXISTS co_color TEXT;

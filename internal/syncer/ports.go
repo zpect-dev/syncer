@@ -10,6 +10,7 @@ const pageSize = 2000
 type SourceRepo interface {
 	FetchLinArt(ctx context.Context) ([]LinArt, error)
 	FetchCatArt(ctx context.Context) ([]CatArt, error)
+	FetchColores(ctx context.Context) ([]Color, error)
 	FetchSubLin(ctx context.Context) ([]SubLin, error)
 	FetchAlmacen(ctx context.Context) ([]Almacen, error)
 	FetchSubAlma(ctx context.Context) ([]SubAlma, error)
@@ -39,6 +40,7 @@ type CacheInvalidator interface {
 type DestRepo interface {
 	UpsertLinArt(ctx context.Context, items []LinArt) (int, error)
 	UpsertCatArt(ctx context.Context, items []CatArt) (int, error)
+	UpsertColores(ctx context.Context, items []Color) (int, error)
 	UpsertSubLin(ctx context.Context, items []SubLin) (int, error)
 	UpsertAlmacen(ctx context.Context, items []Almacen) (int, error)
 	UpsertSubAlma(ctx context.Context, items []SubAlma) (int, error)

@@ -48,6 +48,18 @@ func (s *Service) RunSlowSync(ctx context.Context) {
 		fmt.Printf("Categorias sincronizadas: %d\n", count)
 	}
 
+	// 2.b Colores
+	if err := ctx.Err(); err != nil {
+		log.Printf("Slow Sync cancelado antes de colores: %v", err)
+		return
+	}
+	if items, err := s.source.FetchColores(ctx); err != nil {
+		log.Printf("Error fetching colores: %v", err)
+	} else {
+		count, _ := s.dest.UpsertColores(ctx, items)
+		fmt.Printf("Colores sincronizados: %d\n", count)
+	}
+
 	// 3. Sub-líneas
 	if err := ctx.Err(); err != nil {
 		log.Printf("Slow Sync cancelado antes de sub_lin: %v", err)

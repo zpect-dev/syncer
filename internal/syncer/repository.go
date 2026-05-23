@@ -71,6 +71,26 @@ func (r *SourceRepository) FetchCatArt(ctx context.Context) ([]CatArt, error) {
 	return items, rows.Err()
 }
 
+func (r *SourceRepository) FetchColores(ctx context.Context) ([]Color, error) {
+	var items []Color
+	rows, err := r.db.QueryContext(ctx, "SELECT co_col, des_col FROM colores")
+	if err != nil {
+		return nil, fmt.Errorf("error fetching colores: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var item Color
+		if err := rows.Scan(&item.CoCol, &item.DesCol); err != nil {
+			log.Printf("Error scan colores: %v", err)
+			continue
+		}
+		item.CoCol = strings.TrimSpace(item.CoCol)
+		item.DesCol = strings.TrimSpace(item.DesCol)
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (r *SourceRepository) FetchSubLin(ctx context.Context) ([]SubLin, error) {
 	var items []SubLin
 	rows, err := r.db.QueryContext(ctx, "SELECT co_subl, subl_des, co_lin FROM sub_lin")
@@ -169,8 +189,9 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 			COALESCE(a.co_cat, ''),
 			COALESCE(a.co_subl, ''),
 			COALESCE(a.campo4, ''),
-			COALESCE(a.co_prov, ''),
-			COALESCE(p.prov_des, '')
+			COALESCE(a.campo5, ''),
+			COALESCE(a.co_color, ''),
+			COALESCE(c.cat_des, '')
 		FROM art a
 		LEFT JOIN prov p ON a.co_prov = p.co_prov
 		WHERE a.anulado = 0 AND a.art_des NOT LIKE '%NO USAR%'
@@ -189,8 +210,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 		if err := rows.Scan(
 			&item.CoArt, &item.ArtDes,
 			&item.PrecVta1, &item.PrecVta2, &item.PrecVta3, &item.PrecVta4, &item.PrecVta5,
-			&item.TipoImp, &item.CoLin, &item.CoCat, &item.CoSubl, &item.Campo4,
-			&item.CoProv, &item.ProvDes,
+			&item.TipoImp, &item.CoLin, &item.CoCat, &item.CoSubl, &item.Campo4, &item.SinDsc, &item.CoColor, &item.CatDes,
 		); err != nil {
 			log.Printf("Error scan article: %v", err)
 			continue
@@ -202,8 +222,9 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 		item.CoCat = strings.TrimSpace(item.CoCat)
 		item.CoSubl = strings.TrimSpace(item.CoSubl)
 		item.Campo4 = strings.TrimSpace(item.Campo4)
-		item.CoProv = strings.TrimSpace(item.CoProv)
-		item.ProvDes = strings.TrimSpace(item.ProvDes)
+		item.SinDsc = strings.TrimSpace(item.SinDsc)
+		item.CoColor = strings.TrimSpace(item.CoColor)
+		item.CatDes = strings.TrimSpace(item.CatDes)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -353,7 +374,9 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT co_prov,
 		       hasta1, hasta2, hasta3, hasta4, hasta5,
-		       porc1, porc2, porc3, porc4, porc5
+		       hasta6, hasta7, hasta8, hasta9, hasta10,
+		       porc1, porc2, porc3, porc4, porc5,
+		       porc6, porc7, porc8, porc9, porc10
 		FROM desc_ptc
 	`)
 	if err != nil {
@@ -365,7 +388,9 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 		if err := rows.Scan(
 			&item.CoProv,
 			&item.Hasta1, &item.Hasta2, &item.Hasta3, &item.Hasta4, &item.Hasta5,
+			&item.Hasta6, &item.Hasta7, &item.Hasta8, &item.Hasta9, &item.Hasta10,
 			&item.Porc1, &item.Porc2, &item.Porc3, &item.Porc4, &item.Porc5,
+			&item.Porc6, &item.Porc7, &item.Porc8, &item.Porc9, &item.Porc10,
 		); err != nil {
 			log.Printf("Error scan desc_ptc: %v", err)
 			continue
@@ -471,6 +496,30 @@ func (r *DestRepository) UpsertLinArt(ctx context.Context, items []LinArt) (int,
 		queryTpl := `
 			INSERT INTO lin_art (co_lin, lin_des) VALUES %s
 			ON CONFLICT (co_lin) DO UPDATE SET lin_des = EXCLUDED.lin_des
+		`
+		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
+	}
+	return count, nil
+}
+
+func (r *DestRepository) UpsertColores(ctx context.Context, items []Color) (int, error) {
+	const cols = 2
+	count := 0
+	for i := 0; i < len(items); i += batchSize {
+		end := i + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		chunk := items[i:end]
+
+		args := make([]interface{}, 0, len(chunk)*cols)
+		for _, item := range chunk {
+			args = append(args, item.CoCol, item.DesCol)
+		}
+
+		queryTpl := `
+			INSERT INTO colores (co_col, des_col) VALUES %s
+			ON CONFLICT (co_col) DO UPDATE SET des_col = EXCLUDED.des_col
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
 	}
@@ -623,7 +672,7 @@ func (r *DestRepository) TruncateAndInsertDescuentos(ctx context.Context, items 
 }
 
 func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error) {
-	const cols = 11
+	const cols = 22
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -646,8 +695,11 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 		placeholders := buildPlaceholders(len(chunk), cols)
 		query := fmt.Sprintf(`
 			INSERT INTO desc_ptc
-			(co_prov, hasta1, hasta2, hasta3, hasta4, hasta5,
-			 porc1, porc2, porc3, porc4, porc5)
+			(co_prov, tipo_cli,
+			 hasta1, hasta2, hasta3, hasta4, hasta5,
+			 hasta6, hasta7, hasta8, hasta9, hasta10,
+			 porc1, porc2, porc3, porc4, porc5,
+			 porc6, porc7, porc8, porc9, porc10)
 			VALUES %s
 		`, placeholders)
 
@@ -656,7 +708,9 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 			args = append(args,
 				item.CoProv,
 				item.Hasta1, item.Hasta2, item.Hasta3, item.Hasta4, item.Hasta5,
+				item.Hasta6, item.Hasta7, item.Hasta8, item.Hasta9, item.Hasta10,
 				item.Porc1, item.Porc2, item.Porc3, item.Porc4, item.Porc5,
+				item.Porc6, item.Porc7, item.Porc8, item.Porc9, item.Porc10,
 			)
 		}
 
@@ -720,7 +774,7 @@ func (r *DestRepository) TruncateAndInsertDescProv(ctx context.Context, items []
 }
 
 func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (int, error) {
-	const cols = 14
+	const cols = 15
 	count := 0
 
 	toNull := func(s string) sql.NullString {
@@ -743,14 +797,13 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 				item.CoArt, item.ArtDes,
 				item.PrecVta1, item.PrecVta2, item.PrecVta3, item.PrecVta4, item.PrecVta5,
 				item.TipoImp,
-				toNull(item.CoLin), toNull(item.CoCat), toNull(item.CoSubl), toNull(item.Campo4),
-				toNull(item.CoProv), item.ProvDes,
+				toNull(item.CoLin), toNull(item.CoCat), toNull(item.CoSubl), toNull(item.Campo4), item.SinDsc, toNull(item.CoColor), item.CatDes,
 				// item.ImageURL,
 			)
 		}
 
 		queryTpl := `
-			INSERT INTO art (co_art, art_des, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4, co_prov, prov_des)
+			INSERT INTO art (co_art, art_des, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4, sin_dsc, co_color, cat_des)
 			VALUES %s
 			ON CONFLICT (co_art) DO UPDATE SET
 				art_des = EXCLUDED.art_des,
@@ -764,8 +817,9 @@ func (r *DestRepository) UpsertArticles(ctx context.Context, items []Article) (i
 				co_cat = EXCLUDED.co_cat,
 				co_subl = EXCLUDED.co_subl,
 				campo4 = EXCLUDED.campo4,
-				co_prov = EXCLUDED.co_prov,
-				prov_des = EXCLUDED.prov_des,
+				sin_dsc = EXCLUDED.sin_dsc,
+				co_color = EXCLUDED.co_color,
+				cat_des = EXCLUDED.cat_des,
 				last_sync = NOW()
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)

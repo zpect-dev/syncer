@@ -12,6 +12,12 @@ type CatArt struct {
 	CatDes string `db:"cat_des"`
 }
 
+// Color representa un color (tabla colores).
+type Color struct {
+	CoCol  string `db:"co_col"`
+	DesCol string `db:"des_col"`
+}
+
 // SubLin representa una sub-línea (tabla sub_lin).
 type SubLin struct {
 	CoSubl  string `db:"co_subl"`
@@ -55,8 +61,14 @@ type Article struct {
 	CoCat    string  `db:"co_cat"`
 	CoSubl   string  `db:"co_subl"`
 	Campo4   string  `db:"campo4"`
+<<<<<<< Updated upstream
 	CoProv   string  `db:"co_prov"`
 	ProvDes  string  `db:"prov_des"`
+=======
+	SinDsc   string  `db:"sin_dsc"`
+	CoColor  string  `db:"co_color"`
+	CatDes   string  `db:"cat_des"`
+>>>>>>> Stashed changes
 	// ImageURL string
 }
 
@@ -89,11 +101,21 @@ type DescPtc struct {
 	Hasta3  float64 `db:"hasta3"`
 	Hasta4  float64 `db:"hasta4"`
 	Hasta5  float64 `db:"hasta5"`
+	Hasta6  float64 `db:"hasta6"`
+	Hasta7  float64 `db:"hasta7"`
+	Hasta8  float64 `db:"hasta8"`
+	Hasta9  float64 `db:"hasta9"`
+	Hasta10 float64 `db:"hasta10"`
 	Porc1   float64 `db:"porc1"`
 	Porc2   float64 `db:"porc2"`
 	Porc3   float64 `db:"porc3"`
 	Porc4   float64 `db:"porc4"`
 	Porc5   float64 `db:"porc5"`
+	Porc6   float64 `db:"porc6"`
+	Porc7   float64 `db:"porc7"`
+	Porc8   float64 `db:"porc8"`
+	Porc9   float64 `db:"porc9"`
+	Porc10  float64 `db:"porc10"`
 }
 
 // DescProv representa un descuento por proveedor y cliente específico (tabla desc_prov).

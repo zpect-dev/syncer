@@ -17,11 +17,14 @@ type mockSourceRepo struct {
 
 func (m *mockSourceRepo) FetchLinArt(ctx context.Context) ([]LinArt, error)          { return nil, nil }
 func (m *mockSourceRepo) FetchCatArt(ctx context.Context) ([]CatArt, error)          { return nil, nil }
+func (m *mockSourceRepo) FetchColores(ctx context.Context) ([]Color, error)          { return nil, nil }
 func (m *mockSourceRepo) FetchSubLin(ctx context.Context) ([]SubLin, error)          { return nil, nil }
 func (m *mockSourceRepo) FetchAlmacen(ctx context.Context) ([]Almacen, error)        { return nil, nil }
 func (m *mockSourceRepo) FetchSubAlma(ctx context.Context) ([]SubAlma, error)        { return nil, nil }
 func (m *mockSourceRepo) FetchDescuentos(ctx context.Context) ([]Descuento, error)   { return nil, nil }
 func (m *mockSourceRepo) FetchTiposCli(ctx context.Context) ([]TipoCli, error)       { return nil, nil }
+func (m *mockSourceRepo) FetchDescPtc(ctx context.Context) ([]DescPtc, error)        { return nil, nil }
+func (m *mockSourceRepo) FetchDescProv(ctx context.Context) ([]DescProv, error)      { return nil, nil }
 func (m *mockSourceRepo) FetchStAlmacPage(ctx context.Context, limit, offset int) ([]StAlmac, error) {
 	return nil, nil
 }
@@ -46,10 +49,17 @@ type mockDestRepo struct {
 
 func (m *mockDestRepo) UpsertLinArt(ctx context.Context, items []LinArt) (int, error)                 { return 0, nil }
 func (m *mockDestRepo) UpsertCatArt(ctx context.Context, items []CatArt) (int, error)                 { return 0, nil }
+func (m *mockDestRepo) UpsertColores(ctx context.Context, items []Color) (int, error)                 { return 0, nil }
 func (m *mockDestRepo) UpsertSubLin(ctx context.Context, items []SubLin) (int, error)                 { return 0, nil }
 func (m *mockDestRepo) UpsertAlmacen(ctx context.Context, items []Almacen) (int, error)               { return 0, nil }
 func (m *mockDestRepo) UpsertSubAlma(ctx context.Context, items []SubAlma) (int, error)               { return 0, nil }
 func (m *mockDestRepo) TruncateAndInsertDescuentos(ctx context.Context, items []Descuento) (int, error) {
+	return 0, nil
+}
+func (m *mockDestRepo) TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error) {
+	return 0, nil
+}
+func (m *mockDestRepo) TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error) {
 	return 0, nil
 }
 func (m *mockDestRepo) UpsertTiposCli(ctx context.Context, items []TipoCli) (int, error)                 { return 0, nil }
