@@ -61,14 +61,9 @@ type Article struct {
 	CoCat    string  `db:"co_cat"`
 	CoSubl   string  `db:"co_subl"`
 	Campo4   string  `db:"campo4"`
-<<<<<<< Updated upstream
-	CoProv   string  `db:"co_prov"`
-	ProvDes  string  `db:"prov_des"`
-=======
 	SinDsc   string  `db:"sin_dsc"`
 	CoColor  string  `db:"co_color"`
 	CatDes   string  `db:"cat_des"`
->>>>>>> Stashed changes
 	// ImageURL string
 }
 
