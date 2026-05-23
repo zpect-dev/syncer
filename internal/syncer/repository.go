@@ -374,12 +374,13 @@ func (r *SourceRepository) FetchProv(ctx context.Context) ([]Prov, error) {
 func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) {
 	var items []DescPtc
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT co_prov, tipo_cli,
+		SELECT COALESCE(co_prov, ''),
 		       COALESCE(hasta1, 0),  COALESCE(hasta2, 0),  COALESCE(hasta3, 0),  COALESCE(hasta4, 0),  COALESCE(hasta5, 0),
 		       COALESCE(hasta6, 0),  COALESCE(hasta7, 0),  COALESCE(hasta8, 0),  COALESCE(hasta9, 0),  COALESCE(hasta10, 0),
 		       COALESCE(porc1, 0),   COALESCE(porc2, 0),   COALESCE(porc3, 0),   COALESCE(porc4, 0),   COALESCE(porc5, 0),
 		       COALESCE(porc6, 0),   COALESCE(porc7, 0),   COALESCE(porc8, 0),   COALESCE(porc9, 0),   COALESCE(porc10, 0)
 		FROM desc_ptc
+		WHERE co_prov IS NOT NULL AND LTRIM(RTRIM(co_prov)) <> ''
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching desc_ptc: %w", err)
@@ -388,7 +389,7 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 	for rows.Next() {
 		var item DescPtc
 		if err := rows.Scan(
-			&item.CoProv, &item.TipoCli,
+			&item.CoProv,
 			&item.Hasta1, &item.Hasta2, &item.Hasta3, &item.Hasta4, &item.Hasta5,
 			&item.Hasta6, &item.Hasta7, &item.Hasta8, &item.Hasta9, &item.Hasta10,
 			&item.Porc1, &item.Porc2, &item.Porc3, &item.Porc4, &item.Porc5,
@@ -398,7 +399,6 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 			continue
 		}
 		item.CoProv = strings.TrimSpace(item.CoProv)
-		item.TipoCli = strings.TrimSpace(item.TipoCli)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -675,7 +675,7 @@ func (r *DestRepository) TruncateAndInsertDescuentos(ctx context.Context, items 
 }
 
 func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error) {
-	const cols = 22
+	const cols = 21
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -698,7 +698,7 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 		placeholders := buildPlaceholders(len(chunk), cols)
 		query := fmt.Sprintf(`
 			INSERT INTO desc_ptc
-			(co_prov, tipo_cli,
+			(co_prov,
 			 hasta1, hasta2, hasta3, hasta4, hasta5,
 			 hasta6, hasta7, hasta8, hasta9, hasta10,
 			 porc1, porc2, porc3, porc4, porc5,
@@ -709,7 +709,7 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
 			args = append(args,
-				item.CoProv, item.TipoCli,
+				item.CoProv,
 				item.Hasta1, item.Hasta2, item.Hasta3, item.Hasta4, item.Hasta5,
 				item.Hasta6, item.Hasta7, item.Hasta8, item.Hasta9, item.Hasta10,
 				item.Porc1, item.Porc2, item.Porc3, item.Porc4, item.Porc5,

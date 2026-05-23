@@ -92,7 +92,6 @@ type TipoCli struct {
 // DescPtc representa un descuento por proveedor (tabla desc_ptc).
 type DescPtc struct {
 	CoProv  string  `db:"co_prov"`
-	TipoCli string  `db:"tipo_cli"`
 	Hasta1  float64 `db:"hasta1"`
 	Hasta2  float64 `db:"hasta2"`
 	Hasta3  float64 `db:"hasta3"`
