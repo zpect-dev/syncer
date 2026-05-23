@@ -193,6 +193,7 @@ func (r *SourceRepository) FetchArticlesPage(ctx context.Context, limit, offset 
 			COALESCE(a.co_color, ''),
 			COALESCE(c.cat_des, '')
 		FROM art a
+		LEFT JOIN cat_art c ON a.co_cat = c.co_cat
 		LEFT JOIN prov p ON a.co_prov = p.co_prov
 		WHERE a.anulado = 0 AND a.art_des NOT LIKE '%NO USAR%'
 		ORDER BY a.co_art
@@ -372,7 +373,7 @@ func (r *SourceRepository) FetchProv(ctx context.Context) ([]Prov, error) {
 func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) {
 	var items []DescPtc
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT co_prov,
+		SELECT co_prov, tipo_cli,
 		       COALESCE(hasta1, 0),  COALESCE(hasta2, 0),  COALESCE(hasta3, 0),  COALESCE(hasta4, 0),  COALESCE(hasta5, 0),
 		       COALESCE(hasta6, 0),  COALESCE(hasta7, 0),  COALESCE(hasta8, 0),  COALESCE(hasta9, 0),  COALESCE(hasta10, 0),
 		       COALESCE(porc1, 0),   COALESCE(porc2, 0),   COALESCE(porc3, 0),   COALESCE(porc4, 0),   COALESCE(porc5, 0),
@@ -386,7 +387,7 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 	for rows.Next() {
 		var item DescPtc
 		if err := rows.Scan(
-			&item.CoProv,
+			&item.CoProv, &item.TipoCli,
 			&item.Hasta1, &item.Hasta2, &item.Hasta3, &item.Hasta4, &item.Hasta5,
 			&item.Hasta6, &item.Hasta7, &item.Hasta8, &item.Hasta9, &item.Hasta10,
 			&item.Porc1, &item.Porc2, &item.Porc3, &item.Porc4, &item.Porc5,
@@ -396,6 +397,7 @@ func (r *SourceRepository) FetchDescPtc(ctx context.Context) ([]DescPtc, error) 
 			continue
 		}
 		item.CoProv = strings.TrimSpace(item.CoProv)
+		item.TipoCli = strings.TrimSpace(item.TipoCli)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -706,7 +708,7 @@ func (r *DestRepository) TruncateAndInsertDescPtc(ctx context.Context, items []D
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
 			args = append(args,
-				item.CoProv,
+				item.CoProv, item.TipoCli,
 				item.Hasta1, item.Hasta2, item.Hasta3, item.Hasta4, item.Hasta5,
 				item.Hasta6, item.Hasta7, item.Hasta8, item.Hasta9, item.Hasta10,
 				item.Porc1, item.Porc2, item.Porc3, item.Porc4, item.Porc5,
