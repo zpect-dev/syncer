@@ -63,7 +63,8 @@ type Article struct {
 	Campo4   string  `db:"campo4"`
 	SinDsc   string  `db:"sin_dsc"`
 	CoColor  string  `db:"co_color"`
-	CatDes   string  `db:"cat_des"`
+	CoProv   string  `db:"co_prov"`
+	ProvDes  string  `db:"prov_des"`
 	// ImageURL string
 }
 
