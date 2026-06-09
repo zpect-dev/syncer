@@ -134,6 +134,16 @@ type Cliente struct {
 	Telefonos string `db:"telefonos" json:"telefonos"`
 	Fax      string  `db:"fax" json:"fax"`
 	DescGlob float64 `db:"desc_glob" json:"desc_glob"`
+	// Sicm proviene de la columna "nit" en Profit (origen) y se persiste en la columna "sicm" en PostgreSQL.
+	Sicm     string  `db:"sicm" json:"sicm"`
+	// CoSeg es la FK al segmento del cliente (tabla segmento).
+	CoSeg    string  `db:"co_seg" json:"co_seg"`
+}
+
+// Segmento representa un segmento de cliente (tabla segmento).
+type Segmento struct {
+	CoSeg  string `db:"co_seg" json:"co_seg"`
+	SegDes string `db:"seg_des" json:"seg_des"`
 }
 
 // Prov representa un proveedor (tabla prov en Profit).

@@ -295,7 +295,7 @@ func (r *SourceRepository) FetchTiposCli(ctx context.Context) ([]TipoCli, error)
 
 func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error) {
 	query := `
-		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob
+		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, nit, co_seg
 		FROM clientes
 		ORDER BY co_cli
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -309,9 +309,9 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 	var items []Cliente
 	for rows.Next() {
 		var item Cliente
-		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr sql.NullString
+		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr, sicmStr, coSegStr sql.NullString
 
-		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr); err != nil {
+		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr, &sicmStr, &coSegStr); err != nil {
 			log.Printf("Error scan cliente: %v", err)
 			continue
 		}
@@ -344,6 +344,12 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 				item.DescGlob = val
 			}
 		}
+		if sicmStr.Valid {
+			item.Sicm = strings.TrimSpace(sicmStr.String)
+		}
+		if coSegStr.Valid {
+			item.CoSeg = strings.TrimSpace(coSegStr.String)
+		}
 
 		items = append(items, item)
 	}
@@ -366,6 +372,27 @@ func (r *SourceRepository) FetchProv(ctx context.Context) ([]Prov, error) {
 		}
 		item.CoProv = strings.TrimSpace(item.CoProv)
 		item.ProvDes = strings.TrimSpace(item.ProvDes)
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// FetchSegmento lee la tabla maestra de segmentos desde Profit.
+func (r *SourceRepository) FetchSegmento(ctx context.Context) ([]Segmento, error) {
+	var items []Segmento
+	rows, err := r.db.QueryContext(ctx, "SELECT co_seg, seg_des FROM segmento")
+	if err != nil {
+		return nil, fmt.Errorf("error fetching segmento: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var item Segmento
+		if err := rows.Scan(&item.CoSeg, &item.SegDes); err != nil {
+			log.Printf("Error scan segmento: %v", err)
+			continue
+		}
+		item.CoSeg = strings.TrimSpace(item.CoSeg)
+		item.SegDes = strings.TrimSpace(item.SegDes)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -947,8 +974,17 @@ func (r *DestRepository) UpsertTiposCli(ctx context.Context, items []TipoCli) (i
 }
 
 func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (int, error) {
-	const cols = 11
+	const cols = 13
 	count := 0
+
+	// co_seg es FK a segmento; un valor vacío debe persistirse como NULL para no violar la FK.
+	toNull := func(s string) sql.NullString {
+		if s == "" {
+			return sql.NullString{}
+		}
+		return sql.NullString{String: s, Valid: true}
+	}
+
 	for i := 0; i < len(items); i += batchSize {
 		end := i + batchSize
 		if end > len(items) {
@@ -958,11 +994,11 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
-			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob)
+			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob, item.Sicm, toNull(item.CoSeg))
 		}
 
 		queryTpl := `
-			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob) VALUES %s
+			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, sicm, co_seg) VALUES %s
 			ON CONFLICT (co_cli) DO UPDATE SET
 				tipo = EXCLUDED.tipo,
 				cli_des = EXCLUDED.cli_des,
@@ -973,7 +1009,34 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 				direc1 = EXCLUDED.direc1,
 				telefonos = EXCLUDED.telefonos,
 				fax = EXCLUDED.fax,
-				desc_glob = EXCLUDED.desc_glob
+				desc_glob = EXCLUDED.desc_glob,
+				sicm = EXCLUDED.sicm,
+				co_seg = EXCLUDED.co_seg
+		`
+		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
+	}
+	return count, nil
+}
+
+// UpsertSegmento inserta o actualiza el catálogo maestro de segmentos en PostgreSQL.
+func (r *DestRepository) UpsertSegmento(ctx context.Context, items []Segmento) (int, error) {
+	const cols = 2
+	count := 0
+	for i := 0; i < len(items); i += batchSize {
+		end := i + batchSize
+		if end > len(items) {
+			end = len(items)
+		}
+		chunk := items[i:end]
+
+		args := make([]interface{}, 0, len(chunk)*cols)
+		for _, item := range chunk {
+			args = append(args, item.CoSeg, item.SegDes)
+		}
+
+		queryTpl := `
+			INSERT INTO segmento (co_seg, seg_des) VALUES %s
+			ON CONFLICT (co_seg) DO UPDATE SET seg_des = EXCLUDED.seg_des
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
 	}

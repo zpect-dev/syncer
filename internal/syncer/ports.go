@@ -22,6 +22,7 @@ type SourceRepo interface {
 	FetchDescPtc(ctx context.Context) ([]DescPtc, error)
 	FetchDescProv(ctx context.Context) ([]DescProv, error)
 	FetchProv(ctx context.Context) ([]Prov, error)
+	FetchSegmento(ctx context.Context) ([]Segmento, error)
 }
 
 // CacheInvalidator define el contrato para invalidar las cachés que la API
@@ -53,4 +54,5 @@ type DestRepo interface {
 	TruncateAndInsertDescPtc(ctx context.Context, items []DescPtc) (int, error)
 	TruncateAndInsertDescProv(ctx context.Context, items []DescProv) (int, error)
 	UpsertProv(ctx context.Context, items []Prov) (int, error)
+	UpsertSegmento(ctx context.Context, items []Segmento) (int, error)
 }

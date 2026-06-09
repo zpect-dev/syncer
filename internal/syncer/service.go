@@ -108,6 +108,18 @@ func (s *Service) RunSlowSync(ctx context.Context) {
 		fmt.Printf("Proveedores sincronizados: %d\n", count)
 	}
 
+	// 7. Segmentos (catálogo maestro, referenciado por clientes.co_seg)
+	if err := ctx.Err(); err != nil {
+		log.Printf("Slow Sync cancelado antes de segmento: %v", err)
+		return
+	}
+	if items, err := s.source.FetchSegmento(ctx); err != nil {
+		log.Printf("Error fetching segmento: %v", err)
+	} else {
+		count, _ := s.dest.UpsertSegmento(ctx, items)
+		fmt.Printf("Segmentos sincronizados: %d\n", count)
+	}
+
 	fmt.Println("--- Slow Sync: Completado ---")
 }
 

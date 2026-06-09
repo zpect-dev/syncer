@@ -1,0 +1,8 @@
+BEGIN;
+
+ALTER TABLE clientes DROP CONSTRAINT IF EXISTS fk_clientes_segmento;
+ALTER TABLE clientes DROP COLUMN IF EXISTS co_seg;
+
+DROP TABLE IF EXISTS segmento;
+
+COMMIT;

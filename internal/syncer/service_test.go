@@ -34,6 +34,7 @@ func (m *mockSourceRepo) FetchClientesPage(ctx context.Context, limit, offset in
 func (m *mockSourceRepo) FetchDescPtc(ctx context.Context) ([]DescPtc, error)   { return nil, nil }
 func (m *mockSourceRepo) FetchDescProv(ctx context.Context) ([]DescProv, error) { return nil, nil }
 func (m *mockSourceRepo) FetchProv(ctx context.Context) ([]Prov, error)         { return nil, nil }
+func (m *mockSourceRepo) FetchSegmento(ctx context.Context) ([]Segmento, error) { return nil, nil }
 
 func (m *mockSourceRepo) FetchArticlesPage(ctx context.Context, limit, offset int) ([]Article, error) {
 	args := m.Called(ctx, limit, offset)
@@ -73,6 +74,9 @@ func (m *mockDestRepo) TruncateAndInsertDescProv(ctx context.Context, items []De
 	return 0, nil
 }
 func (m *mockDestRepo) UpsertProv(ctx context.Context, items []Prov) (int, error) { return 0, nil }
+func (m *mockDestRepo) UpsertSegmento(ctx context.Context, items []Segmento) (int, error) {
+	return 0, nil
+}
 
 func (m *mockDestRepo) UpsertArticles(ctx context.Context, items []Article) (int, error) {
 	args := m.Called(ctx, items)
