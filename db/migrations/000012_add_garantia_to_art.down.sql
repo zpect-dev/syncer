@@ -1,0 +1,1 @@
+ALTER TABLE art DROP COLUMN IF EXISTS garantia;

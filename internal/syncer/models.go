@@ -65,6 +65,7 @@ type Article struct {
 	CoColor  string  `db:"co_color"`
 	CoProv   string  `db:"co_prov"`
 	ProvDes  string  `db:"prov_des"`
+	Garantia string  `db:"garantia"`
 	// ImageURL string
 }
 

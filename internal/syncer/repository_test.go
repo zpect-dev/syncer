@@ -329,3 +329,69 @@ func TestDestRepository_UpsertSegmento(t *testing.T) {
 	assert.Equal(t, 1, count)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+// articlesColumns refleja el orden del SELECT de FetchArticlesPage (la última, garantia, es la nueva).
+var articlesColumns = []string{
+	"co_art", "art_des",
+	"prec_agr1", "prec_agr2", "prec_agr3", "prec_agr4", "prec_agr5",
+	"tipo_imp", "co_lin", "co_cat", "co_subl", "campo4", "campo5", "co_color", "co_prov", "prov_des", "garantia",
+}
+
+func TestSourceRepository_FetchArticlesPage_Garantia(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	sqlxDB := sqlx.NewDb(db, "sqlserver")
+	repo := NewSourceRepository(sqlxDB)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	rows := sqlmock.NewRows(articlesColumns).
+		AddRow("A001", "Articulo Uno",
+			1.0, 2.0, 3.0, 4.0, 5.0,
+			"G", "L1", "C1", "SL1", "c4", "", "COL1", "P1", "Prov Uno", "  12 meses  ").
+		AddRow("A002", "Articulo Dos",
+			0.0, 0.0, 0.0, 0.0, 0.0,
+			"E", "", "", "", "", "", "", "", "", "")
+	mock.ExpectQuery("SELECT").WillReturnRows(rows)
+
+	items, err := repo.FetchArticlesPage(ctx, 100, 0)
+	assert.NoError(t, err)
+	require.Len(t, items, 2)
+	assert.Equal(t, "12 meses", items[0].Garantia, "garantia debe recortarse y mapear a Garantia")
+	assert.Equal(t, "", items[1].Garantia, "garantia vacia debe quedar como string vacio")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDestRepository_UpsertArticles_Garantia(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	sqlxDB := sqlx.NewDb(db, "postgres")
+	repo := NewDestRepository(sqlxDB)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// garantia se inserta con toNull: valor presente => string, vacío => NULL.
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO art (co_art, art_des, prec_vta1, prec_vta2, prec_vta3, prec_vta4, prec_vta5, tipo_imp, co_lin, co_cat, co_subl, campo4, sin_dsc, co_color, co_prov, prov_des, garantia)")).
+		WithArgs(
+			"A001", "Articulo Uno",
+			1.0, 2.0, 3.0, 4.0, 5.0,
+			"G", "L1", "C1", "SL1", "c4", "", "COL1", "P1", "Prov Uno", "12 meses",
+		).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	count, err := repo.UpsertArticles(ctx, []Article{{
+		CoArt: "A001", ArtDes: "Articulo Uno",
+		PrecVta1: 1, PrecVta2: 2, PrecVta3: 3, PrecVta4: 4, PrecVta5: 5,
+		TipoImp: "G", CoLin: "L1", CoCat: "C1", CoSubl: "SL1", Campo4: "c4",
+		CoColor: "COL1", CoProv: "P1", ProvDes: "Prov Uno", Garantia: "12 meses",
+	}})
+	assert.NoError(t, err)
+	assert.Equal(t, 1, count)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
