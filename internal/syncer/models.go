@@ -140,6 +140,7 @@ type Cliente struct {
 	Sicm     string  `db:"sicm" json:"sicm"`
 	// CoSeg es la FK al segmento del cliente (tabla segmento).
 	CoSeg    string  `db:"co_seg" json:"co_seg"`
+	Sucu     string  `db:"sucu" json:"sucu"`
 }
 
 // Segmento representa un segmento de cliente (tabla segmento).

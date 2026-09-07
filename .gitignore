@@ -27,3 +27,6 @@ go.work.sum
 # Certificados (CA de DigitalOcean Managed Postgres, etc.)
 certs/*
 !certs/.gitkeep
+
+# Logs del servicio nssm (stdout/stderr)
+logs/
