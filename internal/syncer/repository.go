@@ -299,7 +299,7 @@ func (r *SourceRepository) FetchTiposCli(ctx context.Context) ([]TipoCli, error)
 
 func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset int) ([]Cliente, error) {
 	query := `
-		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, nit, co_seg
+		SELECT co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, nit, co_seg, sucu
 		FROM clientes
 		ORDER BY co_cli
 		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -313,9 +313,9 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 	var items []Cliente
 	for rows.Next() {
 		var item Cliente
-		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr, sicmStr, coSegStr sql.NullString
+		var loginStr, montCreStr, direc1Str, telefonosStr, faxStr, descGlobStr, sicmStr, coSegStr, sucuStr sql.NullString
 
-		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr, &sicmStr, &coSegStr); err != nil {
+		if err := rows.Scan(&item.CoCli, &item.Tipo, &item.CliDes, &item.Rif, &item.Inactivo, &loginStr, &montCreStr, &direc1Str, &telefonosStr, &faxStr, &descGlobStr, &sicmStr, &coSegStr, &sucuStr); err != nil {
 			log.Printf("Error scan cliente: %v", err)
 			continue
 		}
@@ -353,6 +353,9 @@ func (r *SourceRepository) FetchClientesPage(ctx context.Context, limit, offset 
 		}
 		if coSegStr.Valid {
 			item.CoSeg = strings.TrimSpace(coSegStr.String)
+		}
+		if sucuStr.Valid {
+			item.Sucu = strings.TrimSpace(sucuStr.String)
 		}
 
 		items = append(items, item)
@@ -980,7 +983,7 @@ func (r *DestRepository) UpsertTiposCli(ctx context.Context, items []TipoCli) (i
 }
 
 func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (int, error) {
-	const cols = 13
+	const cols = 14
 	count := 0
 
 	// co_seg es FK a segmento; un valor vacío debe persistirse como NULL para no violar la FK.
@@ -1000,11 +1003,11 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 
 		args := make([]interface{}, 0, len(chunk)*cols)
 		for _, item := range chunk {
-			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob, item.Sicm, toNull(item.CoSeg))
+			args = append(args, item.CoCli, item.Tipo, item.CliDes, item.Rif, item.Inactivo, item.Login, item.MontCre, item.Direc1, item.Telefonos, item.Fax, item.DescGlob, item.Sicm, toNull(item.CoSeg), item.Sucu)
 		}
 
 		queryTpl := `
-			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, sicm, co_seg) VALUES %s
+			INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, sicm, co_seg, sucu) VALUES %s
 			ON CONFLICT (co_cli) DO UPDATE SET
 				tipo = EXCLUDED.tipo,
 				cli_des = EXCLUDED.cli_des,
@@ -1017,7 +1020,8 @@ func (r *DestRepository) UpsertClientes(ctx context.Context, items []Cliente) (i
 				fax = EXCLUDED.fax,
 				desc_glob = EXCLUDED.desc_glob,
 				sicm = EXCLUDED.sicm,
-				co_seg = EXCLUDED.co_seg
+				co_seg = EXCLUDED.co_seg,
+				sucu = EXCLUDED.sucu
 		`
 		count += r.execBatchWithFallback(ctx, queryTpl, args, cols)
 	}

@@ -94,7 +94,7 @@ func TestDestRepository_RecalculateInventoryJSON(t *testing.T) {
 // El orden debe coincidir con el SELECT del repositorio (la última, nit, se mapea a Sicm).
 var clientesColumns = []string{
 	"co_cli", "tipo", "cli_des", "rif", "inactivo",
-	"login", "mont_cre", "direc1", "telefonos", "fax", "desc_glob", "nit", "co_seg",
+	"login", "mont_cre", "direc1", "telefonos", "fax", "desc_glob", "nit", "co_seg", "sucu",
 }
 
 func TestSourceRepository_FetchClientesPage(t *testing.T) {
@@ -110,16 +110,18 @@ func TestSourceRepository_FetchClientesPage(t *testing.T) {
 			name: "Exito: Mapea la columna nit del origen a Sicm y la recorta",
 			setupMock: func(mock sqlmock.Sqlmock) {
 				rows := sqlmock.NewRows(clientesColumns).
-					AddRow("C001", "T1", "Cliente Uno", "J-123", false, "5", "1000.50", "Av Siempre", "0212", "0212", "10.0", "  SICM-001  ", "  S01  ").
-					AddRow("C002", "T1", "Cliente Dos", "J-456", false, "0", "0", "", "", "", "0", nil, nil)
+					AddRow("C001", "T1", "Cliente Uno", "J-123", false, "5", "1000.50", "Av Siempre", "0212", "0212", "10.0", "  SICM-001  ", "  S01  ", "  SUC-01  ").
+					AddRow("C002", "T1", "Cliente Dos", "J-456", false, "0", "0", "", "", "", "0", nil, nil, nil)
 				mock.ExpectQuery("SELECT co_cli, tipo, cli_des").WillReturnRows(rows)
 			},
 			assertItems: func(t *testing.T, items []Cliente) {
 				require.Len(t, items, 2)
 				assert.Equal(t, "SICM-001", items[0].Sicm, "nit debe recortarse y mapear a Sicm")
 				assert.Equal(t, "S01", items[0].CoSeg, "co_seg debe recortarse y mapear a CoSeg")
+				assert.Equal(t, "SUC-01", items[0].Sucu, "sucu debe recortarse")
 				assert.Equal(t, "", items[1].Sicm, "nit NULL debe quedar como string vacio")
 				assert.Equal(t, "", items[1].CoSeg, "co_seg NULL debe quedar como string vacio")
+				assert.Equal(t, "", items[1].Sucu, "sucu NULL debe quedar como string vacio")
 			},
 		},
 		{
@@ -186,13 +188,13 @@ func TestDestRepository_UpsertClientes(t *testing.T) {
 		expectedCount int
 	}{
 		{
-			name: "Exito: Inserta cliente con co_seg (FK a segmento)",
+			name: "Exito: Inserta cliente con co_seg (FK a segmento) y sucu",
 			items: []Cliente{
-				{CoCli: "C001", Tipo: "T1", CliDes: "Cliente Uno", Rif: "J-123", Sicm: "SICM-001", CoSeg: "S01"},
+				{CoCli: "C001", Tipo: "T1", CliDes: "Cliente Uno", Rif: "J-123", Sicm: "SICM-001", CoSeg: "S01", Sucu: "SUC-01"},
 			},
 			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, sicm, co_seg)")).
-					WithArgs("C001", "T1", "Cliente Uno", "J-123", false, float64(0), float64(0), "", "", "", float64(0), "SICM-001", "S01").
+				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, sicm, co_seg, sucu)")).
+					WithArgs("C001", "T1", "Cliente Uno", "J-123", false, float64(0), float64(0), "", "", "", float64(0), "SICM-001", "S01", "SUC-01").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 			},
 			expectedCount: 1,
@@ -203,8 +205,8 @@ func TestDestRepository_UpsertClientes(t *testing.T) {
 				{CoCli: "C002", Tipo: "T1", CliDes: "Cliente Dos", Rif: "J-456", CoSeg: ""},
 			},
 			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, sicm, co_seg)")).
-					WithArgs("C002", "T1", "Cliente Dos", "J-456", false, float64(0), float64(0), "", "", "", float64(0), "", nil).
+				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO clientes (co_cli, tipo, cli_des, rif, inactivo, login, mont_cre, direc1, telefonos, fax, desc_glob, sicm, co_seg, sucu)")).
+					WithArgs("C002", "T1", "Cliente Dos", "J-456", false, float64(0), float64(0), "", "", "", float64(0), "", nil, "").
 					WillReturnResult(sqlmock.NewResult(0, 1))
 			},
 			expectedCount: 1,
