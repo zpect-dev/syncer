@@ -930,6 +930,8 @@ func (r *DestRepository) RecalculateInventoryJSON(ctx context.Context) error {
 					SUM(st.stock_lle) as total_lle
 				FROM st_almac st
 				JOIN sub_alma sa ON st.co_alma = sa.co_sub
+				-- 03 = COTIZACIONES, 07 = CONSIGNACION BQMTO: no es stock vendible.
+				WHERE TRIM(st.co_alma) NOT IN ('03', '07')
 				GROUP BY st.co_art, sa.co_alma
 				HAVING SUM(st.stock_act) > 0
 			) st_agg
